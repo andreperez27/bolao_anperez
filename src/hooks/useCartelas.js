@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { listCartelasByUser, listCartelas, salvarCartela, deletarCartela, validarCartela } from "../services/cartelas";
+import { listCartelas, salvarCartela, deletarCartela, validarCartela } from "../services/cartelas";
 import { useAuth } from "../contexts/AuthContext";
 
 export function useCartelas() {
-  const { user, jogador, isAdmin } = useAuth();
+  const { user, jogador } = useAuth();
   const [cartelas, setCartelas] = useState([]);
   const [loading, setLoading] = useState(true);
   const mounted = useRef(true);
@@ -11,17 +11,13 @@ export function useCartelas() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const data = isAdmin
-        ? await listCartelas()
-        : user
-          ? await listCartelasByUser(user.nome)
-          : [];
+      const data = await listCartelas();
       if (mounted.current) setCartelas(data || []);
     } catch {
       if (mounted.current) setCartelas([]);
     }
     if (mounted.current) setLoading(false);
-  }, [user, isAdmin]);
+  }, []);
 
   useEffect(() => {
     if (user) {
