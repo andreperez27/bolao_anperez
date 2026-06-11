@@ -1,18 +1,8 @@
-const SUPABASE_URL = "https://sjleucelnptbgyjofhnz.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_fFDUULEIatz3fzxENC6BRQ_T8rZZEmr";
-
-const headers = {
-  "apikey": SUPABASE_ANON_KEY,
-  "Authorization": "Bearer " + SUPABASE_ANON_KEY,
-  "Content-Type": "application/json",
-};
+import { supabaseFetch, supabaseHeaders, SUPABASE_URL } from "./supabase";
 
 export async function getAdminData() {
   try {
-    const res = await fetch(
-      SUPABASE_URL + "/rest/v1/admin?select=resultados,campeo_real&id=eq.1",
-      { method: "GET", headers }
-    );
+    const res = await supabaseFetch("/rest/v1/admin?select=resultados,campeo_real&id=eq.1");
     const data = await res.json();
     return {
       resultados: data?.[0]?.resultados || {},
@@ -24,42 +14,28 @@ export async function getAdminData() {
 }
 
 export async function salvarAdminData(resultados, campeoReal) {
-  const res = await fetch(
-    SUPABASE_URL + "/rest/v1/admin?id=eq.1",
-    {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({
-        resultados,
-        campeo_real: campeoReal,
-        updated_at: new Date().toISOString(),
-      }),
-    }
-  );
+  const body = {
+    resultados,
+    campeo_real: campeoReal,
+    updated_at: new Date().toISOString(),
+  };
+  const res = await supabaseFetch("/rest/v1/admin?id=eq.1", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
   if (!res.ok) {
-    const res2 = await fetch(
-      SUPABASE_URL + "/rest/v1/admin",
-      {
-        method: "POST",
-        headers: { ...headers, "Prefer": "resolution=merge-duplicates" },
-        body: JSON.stringify({
-          id: 1,
-          resultados,
-          campeo_real: campeoReal,
-          updated_at: new Date().toISOString(),
-        }),
-      }
-    );
+    const res2 = await supabaseFetch("/rest/v1/admin", {
+      method: "POST",
+      headers: { ...supabaseHeaders, "Prefer": "resolution=merge-duplicates" },
+      body: JSON.stringify({ id: 1, ...body }),
+    });
     if (!res2.ok && res2.status !== 201) throw new Error("Erro ao salvar dados de admin");
   }
 }
 
 export async function getConfig() {
   try {
-    const res = await fetch(
-      SUPABASE_URL + "/rest/v1/config?select=valor_aposta,api_url,admin_password,bonus_geral&id=eq.1",
-      { method: "GET", headers }
-    );
+    const res = await supabaseFetch("/rest/v1/config?select=valor_aposta,api_url,admin_password,bonus_geral&id=eq.1");
     const data = await res.json();
     return {
       valor_aposta: data?.[0]?.valor_aposta || 20,
@@ -82,23 +58,16 @@ export async function salvarConfig({ valor_aposta, api_url, admin_password, bonu
   if (admin_password !== undefined && admin_password !== "") {
     body.admin_password = admin_password;
   }
-  const res = await fetch(
-    SUPABASE_URL + "/rest/v1/config?id=eq.1",
-    {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify(body),
-    }
-  );
+  const res = await supabaseFetch("/rest/v1/config?id=eq.1", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
   if (!res.ok) {
-    const res2 = await fetch(
-      SUPABASE_URL + "/rest/v1/config",
-      {
-        method: "POST",
-        headers: { ...headers, "Prefer": "resolution=merge-duplicates" },
-        body: JSON.stringify({ id: 1, ...body }),
-      }
-    );
+    const res2 = await supabaseFetch("/rest/v1/config", {
+      method: "POST",
+      headers: { ...supabaseHeaders, "Prefer": "resolution=merge-duplicates" },
+      body: JSON.stringify({ id: 1, ...body }),
+    });
     if (!res2.ok && res2.status !== 201) throw new Error("Erro ao salvar configuração");
   }
 }

@@ -12,6 +12,7 @@ export default function Ranking({
   campeoReal,
   isAdmin,
   config,
+  ultimaAtualizacao,
   onVoltar,
   onValidarCartela,
   onResultadosChange,
@@ -240,6 +241,7 @@ export default function Ranking({
           resultados={resultados}
           campeoReal={campeoReal}
           isAdmin={isAdmin}
+          ultimaAtualizacao={ultimaAtualizacao}
           onValidarCartela={onValidarCartela}
           onResultadosChange={onResultadosChange}
         />

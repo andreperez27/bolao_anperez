@@ -6,6 +6,7 @@ import { JOGOS_TODOS, JOGOS_GRUPOS, TODOS_TIMES } from "../services/jogos";
 import { salvarAdminData, salvarConfig } from "../services/admin";
 import { listJogadores, deletarJogador } from "../services/jogadores";
 import { useAuth } from "../contexts/AuthContext";
+import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
 
 export function AdminPanel({
   cartelas,
@@ -13,6 +14,7 @@ export function AdminPanel({
   campeoReal,
   onValidarCartela,
   onResultadosChange,
+  ultimaAtualizacao,
 }) {
   const { isAdmin } = useAuth();
   const [abaAdmin, setAbaAdmin] = useState("validar");
@@ -69,47 +71,20 @@ export function AdminPanel({
     setBuscando(true);
     setMsgBusca("Buscando resultados...");
     try {
-      let res = await fetch(url).catch(() => null);
-      if (!res || !res.ok) {
-        res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url));
-        if (!res.ok) throw new Error("HTTP " + res.status);
-      }
-      const data = await res.json();
-      const matches = Array.isArray(data) ? data : data.matches || data.data || [];
-      const novos = { ...resultadosEdit };
-      let count = 0;
-      matches.forEach((m) => {
-        const home = m.home_team || m.team1 || m.homeTeam || {};
-        const away = m.away_team || m.team2 || m.awayTeam || {};
-        const homeName = home.name || home.country || "";
-        const awayName = away.name || away.country || "";
-        const homeGoals =
-          m.home_score ?? m.goals_home ?? m.homeTeam?.goals ?? m.score?.fullTime?.home;
-        const awayGoals =
-          m.away_score ?? m.goals_away ?? m.awayTeam?.goals ?? m.score?.fullTime?.away;
-        if (homeGoals === null || homeGoals === undefined || awayGoals === null || awayGoals === undefined)
-          return;
-        JOGOS_TODOS.forEach((j) => {
-          if (
-            j.time_a.toLowerCase().includes(homeName.toLowerCase()) &&
-            j.time_b.toLowerCase().includes(awayName.toLowerCase())
-          ) {
-            if (novos[j.id]?.placar_a !== homeGoals || novos[j.id]?.placar_b !== awayGoals) {
-              novos[j.id] = { placar_a: Number(homeGoals), placar_b: Number(awayGoals) };
-              count++;
-            }
-          }
-        });
-      });
+      const matches = await fetchResultadosDeURL(url);
+      const novos = parseResultadosDeAPI(matches);
+      const count = Object.keys(novos).length;
       if (count > 0) {
-        setResultadosEdit(novos);
-        onResultadosChange(novos, campeoRealEdit);
-        setMsgBusca(count + " resultado(s) atualizado(s)!");
+        const mergeados = { ...resultadosEdit, ...novos };
+        setResultadosEdit(mergeados);
+        onResultadosChange(mergeados, campeoRealEdit);
+        await salvarAdminData(mergeados, campeoRealEdit);
+        setMsgBusca(`${count} resultado(s) atualizado(s)!`);
       } else {
-        setMsgBusca("Nenhum resultado novo encontrado");
+        setMsgBusca("Nenhum resultado novo encontrado. Verifique se a API retorna jogos finalizados.");
       }
     } catch (e) {
-      setMsgBusca("Erro: " + e.message + ". Tente manualmente.");
+      setMsgBusca("Erro: " + e.message + ". Tente inserir manualmente.");
     }
     setBuscando(false);
   }, [apiUrl, resultadosEdit, campeoRealEdit, onResultadosChange]);
@@ -261,6 +236,11 @@ export function AdminPanel({
           </div>
           {msgBusca && (
             <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 10 }}>{msgBusca}</div>
+          )}
+          {ultimaAtualizacao && (
+            <div style={{ color: "#8B9CC8", fontSize: 11, marginBottom: 8 }}>
+              Última atualização automática: {new Date(ultimaAtualizacao).toLocaleTimeString("pt-BR")}
+            </div>
           )}
           <div style={{ marginBottom: 12 }}>
             <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Campeão real</div>

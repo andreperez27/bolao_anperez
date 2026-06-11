@@ -199,7 +199,7 @@ export default function Login({ onLogin }) {
 
             <div style={{ display: "flex", gap: 8 }}>
               <Btn
-                onClick={() => { setModo(null); handleEntrar(); }}
+                onClick={handleEntrar}
                 style={{ flex: 1 }}
                 disabled={!nome || !senha || submitting}
               >

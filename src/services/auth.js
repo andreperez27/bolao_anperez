@@ -1,3 +1,5 @@
+import { supabaseFetch, supabaseHeaders, SUPABASE_URL } from "./supabase";
+
 const SESSION_KEY = "bolao_session";
 
 export function getSession() {
@@ -18,15 +20,8 @@ export function limparSession() {
 }
 
 function apiCall(method, path, body) {
-  const SUPABASE_URL = "https://sjleucelnptbgyjofhnz.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_fFDUULEIatz3fzxENC6BRQ_T8rZZEmr";
-  return fetch(SUPABASE_URL + path, {
+  return supabaseFetch(path, {
     method,
-    headers: {
-      "apikey": SUPABASE_ANON_KEY,
-      "Authorization": "Bearer " + SUPABASE_ANON_KEY,
-      "Content-Type": "application/json",
-    },
     body: body ? JSON.stringify(body) : undefined,
   });
 }
@@ -44,21 +39,32 @@ async function rpc(name, params) {
 }
 
 async function rpcRetry(name, params, tentativas = 3) {
+  let lastError = null;
   for (let i = 0; i < tentativas; i++) {
     try {
       const data = await rpc(name, params);
       if (data && data.nome) return data;
-    } catch {}
+    } catch (e) {
+      lastError = e;
+    }
     if (i < tentativas - 1) await new Promise((r) => setTimeout(r, 1000));
   }
+  if (lastError) throw lastError;
   return null;
 }
 
 export async function signIn({ nome, senha }) {
-  const data = await rpcRetry("buscar_jogador", { p_nome: nome.trim(), p_senha: senha });
-  if (!data || !data.nome) throw new Error("Nome ou senha incorretos");
-  salvarSession({ nome: data.nome, isAdmin: false });
-  return data;
+  try {
+    const data = await rpcRetry("buscar_jogador", { p_nome: nome.trim(), p_senha: senha });
+    if (!data || !data.nome) throw new Error("Nome ou senha incorretos");
+    salvarSession({ nome: data.nome, isAdmin: false });
+    return data;
+  } catch (e) {
+    if (!e.message || e.message.includes("fetch") || e.message.includes("network") || e.message.includes("Failed")) {
+      throw new Error("Erro de conexão. Verifique sua internet e tente novamente.");
+    }
+    throw e;
+  }
 }
 
 export async function signUp({ nome, senha }) {
