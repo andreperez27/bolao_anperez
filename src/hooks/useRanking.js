@@ -19,8 +19,11 @@ export function useRanking() {
 
   const autoFetchResultados = useCallback(async (url) => {
     try {
-      const res = await fetch(url);
-      if (!res.ok) return;
+      let res = await fetch(url).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url));
+        if (!res.ok) return;
+      }
       const data = await res.json();
       const matches = Array.isArray(data) ? data : data.matches || data.data || [];
       const novos = {};

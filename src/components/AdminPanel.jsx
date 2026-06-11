@@ -69,8 +69,11 @@ export function AdminPanel({
     setBuscando(true);
     setMsgBusca("Buscando resultados...");
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("HTTP " + res.status);
+      let res = await fetch(url).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url));
+        if (!res.ok) throw new Error("HTTP " + res.status);
+      }
       const data = await res.json();
       const matches = Array.isArray(data) ? data : data.matches || data.data || [];
       const novos = { ...resultadosEdit };
