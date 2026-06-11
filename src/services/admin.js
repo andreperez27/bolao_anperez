@@ -52,22 +52,28 @@ export async function salvarConfig({ valor_aposta, api_url, admin_password, bonu
   const body = {
     valor_aposta: Number(valor_aposta),
     api_url,
-    bonus_geral: Number(bonus_geral) || 0,
     updated_at: new Date().toISOString(),
   };
   if (admin_password !== undefined && admin_password !== "") {
     body.admin_password = admin_password;
+  }
+  if (bonus_geral !== undefined) {
+    body.bonus_geral = Number(bonus_geral) || 0;
   }
   const res = await supabaseFetch("/rest/v1/config?id=eq.1", {
     method: "PATCH",
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    const texto = await res.text().catch(() => "");
     const res2 = await supabaseFetch("/rest/v1/config", {
       method: "POST",
       headers: { ...supabaseHeaders, "Prefer": "resolution=merge-duplicates" },
       body: JSON.stringify({ id: 1, ...body }),
     });
-    if (!res2.ok && res2.status !== 201) throw new Error("Erro ao salvar configuração");
+    if (!res2.ok && res2.status !== 201) {
+      const texto2 = await res2.text().catch(() => "");
+      throw new Error("Erro ao salvar configuração\nPATCH: " + res.status + " " + texto.slice(0, 200) + "\nPOST: " + res2.status + " " + texto2.slice(0, 200));
+    }
   }
 }
