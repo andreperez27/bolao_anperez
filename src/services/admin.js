@@ -52,7 +52,6 @@ export async function salvarConfig({ valor_aposta, api_url, admin_password, bonu
   const body = {
     valor_aposta: Number(valor_aposta),
     api_url,
-    updated_at: new Date().toISOString(),
   };
   if (admin_password !== undefined && admin_password !== "") {
     body.admin_password = admin_password;
