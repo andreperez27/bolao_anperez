@@ -1,0 +1,245 @@
+import React from "react";
+import { Card } from "../components/Card";
+import { Btn } from "../components/Btn";
+import { StatusBadge } from "../components/StatusBadge";
+import { PainelFinanceiro } from "../components/PainelFinanceiro";
+import { AdminPanel } from "../components/AdminPanel";
+import { calcularPontos, pontosCampeaoPorFase } from "../utils/pontuacao";
+
+export default function Ranking({
+  cartelas,
+  resultados,
+  campeoReal,
+  isAdmin,
+  config,
+  onVoltar,
+  onValidarCartela,
+  onResultadosChange,
+  onShowInstrucoes,
+}) {
+  const medalhas = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"];
+
+  const ranking = cartelas
+    .map((c) => {
+      let pts = 0;
+      let total = 0;
+      let acertos = 0;
+      let placaresExatos = 0;
+      let diferencasCertas = 0;
+      for (const [k, v] of Object.entries(c.palpites || {})) {
+        if (k === "__campeo") continue;
+        total++;
+        const r = resultados[k];
+        const { pts: pt, tipo } = calcularPontos(v, r);
+        pts += pt;
+        if (tipo !== "errou" && tipo !== "pendente") acertos++;
+        if (tipo === "placar_exato") placaresExatos++;
+        if (tipo === "diferenca_certa") diferencasCertas++;
+      }
+      if (campeoReal && c.campeao === campeoReal) {
+        pts += pontosCampeaoPorFase(c.campeao_fase || "grupos");
+      }
+      pts += Number(config?.bonus_geral) || 0;
+      return { ...c, pts, total, acertos, placaresExatos, diferencasCertas };
+    })
+    .sort((a, b) => {
+      if (b.pts !== a.pts) return b.pts - a.pts;
+      if (b.placaresExatos !== a.placaresExatos) return b.placaresExatos - a.placaresExatos;
+      return b.diferencasCertas - a.diferencasCertas;
+    });
+
+  const primeiro = ranking[0] || null;
+  const segundo = ranking[1] || null;
+  const terceiro = ranking[2] || null;
+
+  return (
+    <div className="scroll-suave" style={{ minHeight: "100vh", background: "#0A0E1A", paddingBottom: 60 }}>
+      <div
+        style={{
+          background: "linear-gradient(135deg, #B8860B, #FFD700)",
+          padding: "16px 20px 14px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 6,
+          }}
+        >
+          <button
+            onClick={onVoltar}
+            style={{
+              background: "rgba(0,0,0,0.25)",
+              color: "#000",
+              border: "none",
+              borderRadius: 8,
+              padding: "6px 12px",
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            {"\u2190"} Voltar
+          </button>
+          <button
+            onClick={onShowInstrucoes}
+            style={{
+              background: "rgba(0,0,0,0.15)",
+              border: "none",
+              borderRadius: 8,
+              padding: "6px 10px",
+              fontSize: 18,
+              cursor: "pointer",
+            }}
+          >
+            {"\u2753"}
+          </button>
+        </div>
+        <div style={{ color: "#000", fontSize: 22, fontWeight: 900 }}>
+          {"\uD83C\uDFC5"} Ranking do Bolão
+        </div>
+        <div style={{ color: "rgba(0,0,0,0.6)", fontSize: 13 }}>
+          {cartelas.length} cartelas
+        </div>
+      </div>
+
+      <div style={{ padding: "14px 16px 0" }}>
+        <PainelFinanceiro
+          totalParticipantes={cartelas.length}
+          valorAposta={config?.valor_aposta || 20}
+        />
+
+        {ranking.length > 0 && (
+          <div
+            style={{
+              background: "linear-gradient(135deg, #1a1a2e, #16213e)",
+              border: "1px solid #1E2A45",
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "flex-end",
+                gap: 12,
+                padding: "8px 0",
+              }}
+            >
+              {segundo ? (
+                <div style={{ textAlign: "center", flex: 1 }}>
+                  <div style={{ fontSize: 28 }}>{"\uD83E\uDD48"}</div>
+                  <div style={{ color: "#F0F4FF", fontSize: 13, fontWeight: 800, marginTop: 4 }}>
+                    {segundo.participante}
+                  </div>
+                  <div style={{ color: "#FFD700", fontSize: 18, fontWeight: 900 }}>
+                    {segundo.pts}
+                  </div>
+                  <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
+                </div>
+              ) : (
+                <div style={{ flex: 1 }} />
+              )}
+              {primeiro ? (
+                <div style={{ textAlign: "center", flex: 1.3 }}>
+                  <div style={{ fontSize: 36 }}>{"\uD83E\uDD47"}</div>
+                  <div style={{ color: "#F0F4FF", fontSize: 15, fontWeight: 800, marginTop: 4 }}>
+                    {primeiro.participante}
+                  </div>
+                  <div style={{ color: "#FFD700", fontSize: 22, fontWeight: 900 }}>
+                    {primeiro.pts}
+                  </div>
+                  <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
+                </div>
+              ) : (
+                <div style={{ flex: 1.3 }} />
+              )}
+              {terceiro ? (
+                <div style={{ textAlign: "center", flex: 1 }}>
+                  <div style={{ fontSize: 28 }}>{"\uD83E\uDD49"}</div>
+                  <div style={{ color: "#F0F4FF", fontSize: 13, fontWeight: 800, marginTop: 4 }}>
+                    {terceiro.participante}
+                  </div>
+                  <div style={{ color: "#FFD700", fontSize: 18, fontWeight: 900 }}>
+                    {terceiro.pts}
+                  </div>
+                  <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
+                </div>
+              ) : (
+                <div style={{ flex: 1 }} />
+              )}
+            </div>
+          </div>
+        )}
+
+        {ranking.map((c, idx) => (
+          <div
+            key={c.id}
+            style={{
+              background: "#111827",
+              border: "1px solid #1E2A45",
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <div
+              style={{
+                color: idx < 3 ? "#FFD700" : "#8B9CC8",
+                fontWeight: 900,
+                fontSize: 18,
+                width: 32,
+                textAlign: "center",
+              }}
+            >
+              {idx < 3 ? medalhas[idx] : `${idx + 1}º`}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>
+                {c.participante}{" "}
+                <span style={{ color: "#8B9CC8", fontWeight: 400, fontSize: 12 }}>
+                  ({c.nome || "Cartela"})
+                </span>
+              </div>
+              <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>
+                {c.acertos}/{c.total} acertos {"·"} Campeão: {c.campeao || "—"}{" "}
+                {c.campeao === campeoReal && campeoReal
+                  ? "\u2705 +" + pontosCampeaoPorFase(c.campeao_fase || "grupos")
+                  : ""}
+                <span style={{ marginLeft: 6 }}>
+                  <StatusBadge status={c.status} />
+                </span>
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ color: "#FFD700", fontWeight: 900, fontSize: 20 }}>{c.pts}</div>
+              <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
+            </div>
+          </div>
+        ))}
+
+        {ranking.length === 0 && (
+          <div style={{ textAlign: "center", color: "#8B9CC8", padding: 40 }}>
+            Nenhuma cartela ainda
+          </div>
+        )}
+
+        <AdminPanel
+          cartelas={cartelas}
+          resultados={resultados}
+          campeoReal={campeoReal}
+          isAdmin={isAdmin}
+          onValidarCartela={onValidarCartela}
+          onResultadosChange={onResultadosChange}
+        />
+      </div>
+    </div>
+  );
+}

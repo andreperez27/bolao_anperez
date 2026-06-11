@@ -1,0 +1,33 @@
+{
+  "name": "Bol\u00e3o da Copa 2026",
+  "short_name": "Bol\u00e3o 2026",
+  "description": "Sistema de bol\u00e3o para a Copa do Mundo 2026",
+  "start_url": "/bolao-copa-2026/",
+  "scope": "/bolao-copa-2026/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0A0E1A",
+  "background_color": "#0A0E1A",
+  "lang": "pt-BR",
+  "categories": ["sports", "games"],
+  "icons": [
+    {
+      "src": "/icons/192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

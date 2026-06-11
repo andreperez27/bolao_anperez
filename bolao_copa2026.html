@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <meta name="theme-color" content="#0A0E1A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Bolão da Copa 2026</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { background: #0A0E1A; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    input, select, textarea { font-size: 16px !important; }
+    input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
+    #root { max-width: 480px; margin: 0 auto; min-height: 100vh; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1E2A45; border-radius: 4px; }
+    select, button { outline: none; }
+    a { text-decoration: none; }
+    .scroll-suave { -webkit-overflow-scrolling: touch; }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    "use strict";
+    const createRoot = ReactDOM.createRoot;
+    const { useState, useEffect } = React;
+    const STORAGE_KEY_ADMIN = "bolao_admin";
+    const STORAGE_KEY_JOGADORES = "bolao_jogadores";
+
+    const SUPABASE_URL = 'https://sjleucelnptbgyjofhnz.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_fFDUULEIatz3fzxENC6BRQ_T8rZZEmr';
+
+    const supabaseClient = {
+      from: (table) => {
+        const base = SUPABASE_URL.replace(/\/+$/, '') + '/rest/v1/' + table;
+        const headers = {
+          'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        };
+        const buildUrl = (filters) => {
+          if (!filters || Object.keys(filters).length === 0) return base;
+          const params = Object.entries(filters).map(([k, v]) => k + '=eq.' + encodeURIComponent(String(v))).join('&');
+          return base + '?' + params;
+        };
+        const orderUrl = (url, col, dir) => url + (url.includes('?') ? '&' : '?') + 'order=' + col + (dir === 'desc' ? '.desc' : '');
+        return {
+          select: async (filters, opts = {}) => {
+            let url = buildUrl(filters);
+            if (opts.order) url = orderUrl(url, opts.order, opts.dir || 'asc');
+            const res = await fetch(url, { headers });
+            if (!res.ok) throw new Error('Supabase select: ' + res.status);
+            return res.json();
+          },
+          upsert: async (data) => {
+            const res = await fetch(base, { method: 'POST', headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify(data) });
+            if (!res.ok) throw new Error('Supabase upsert: ' + res.status);
+            return res.json();
+          },
+          delete: async (filters) => {
+            const res = await fetch(buildUrl(filters), { method: 'DELETE', headers });
+            if (!res.ok) throw new Error('Supabase delete: ' + res.status);
+            return res.json();
+          },
+        };
+      },
+    };
+
+    const JOGOS_GRUPOS = [{"id":"wc2026-0","time_a":"México","time_b":"África do Sul","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"11/06 16:00","grupo":"Grupo A","estadio":"Mexico City","data_iso":"2026-06-11","round":"Matchday 1"},{"id":"wc2026-1","time_a":"Coreia do Sul","time_b":"República Tcheca","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"11/06 23:00","grupo":"Grupo A","estadio":"Guadalajara (Zapopan)","data_iso":"2026-06-11","round":"Matchday 1"},{"id":"wc2026-2","time_a":"República Tcheca","time_b":"África do Sul","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"18/06 13:00","grupo":"Grupo A","estadio":"Atlanta","data_iso":"2026-06-18","round":"Matchday 8"},{"id":"wc2026-3","time_a":"México","time_b":"Coreia do Sul","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"18/06 22:00","grupo":"Grupo A","estadio":"Dallas","data_iso":"2026-06-18","round":"Matchday 8"},{"id":"wc2026-4","time_a":"República Tcheca","time_b":"México","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"24/06 22:00","grupo":"Grupo A","estadio":"Houston","data_iso":"2026-06-24","round":"Matchday 15"},{"id":"wc2026-5","time_a":"África do Sul","time_b":"Coreia do Sul","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"24/06 22:00","grupo":"Grupo A","estadio":"Kansas City","data_iso":"2026-06-24","round":"Matchday 15"},{"id":"wc2026-6","time_a":"Canadá","time_b":"Bosnia & Herzegovina","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"12/06 19:00","grupo":"Grupo B","estadio":"Toronto","data_iso":"2026-06-12","round":"Matchday 2"},{"id":"wc2026-7","time_a":"Qatar","time_b":"Suíça","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"12/06 22:00","grupo":"Grupo B","estadio":"Los Angeles","data_iso":"2026-06-12","round":"Matchday 2"},{"id":"wc2026-8","time_a":"Bosnia & Herzegovina","time_b":"Qatar","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"19/06 12:00","grupo":"Grupo B","estadio":"Boston","data_iso":"2026-06-19","round":"Matchday 9"},{"id":"wc2026-9","time_a":"Canadá","time_b":"Suíça","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"20/06 21:00","grupo":"Grupo B","estadio":"Seattle","data_iso":"2026-06-20","round":"Matchday 10"},{"id":"wc2026-10","time_a":"Qatar","time_b":"Canadá","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"25/06 22:00","grupo":"Grupo B","estadio":"San Francisco","data_iso":"2026-06-25","round":"Matchday 16"},{"id":"wc2026-11","time_a":"Suíça","time_b":"Bosnia & Herzegovina","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"25/06 22:00","grupo":"Grupo B","estadio":"Atlanta","data_iso":"2026-06-25","round":"Matchday 16"},{"id":"wc2026-12","time_a":"Brasil","time_b":"Marrocos","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"13/06 16:00","grupo":"Grupo C","estadio":"New York/New Jersey","data_iso":"2026-06-13","round":"Matchday 3"},{"id":"wc2026-13","time_a":"Escócia","time_b":"Haiti","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"13/06 22:00","grupo":"Grupo C","estadio":"Philadelphia","data_iso":"2026-06-13","round":"Matchday 3"},{"id":"wc2026-14","time_a":"Brasil","time_b":"Escócia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"16/06 22:00","grupo":"Grupo C","estadio":"New York/New Jersey","data_iso":"2026-06-16","round":"Matchday 6"},{"id":"wc2026-15","time_a":"Haiti","time_b":"Marrocos","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"14/06 22:00","grupo":"Grupo C","estadio":"Washington DC","data_iso":"2026-06-14","round":"Matchday 4"},{"id":"wc2026-16","time_a":"Brasil","time_b":"Haiti","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"22/06 22:00","grupo":"Grupo C","estadio":"Miami","data_iso":"2026-06-22","round":"Matchday 13"},{"id":"wc2026-17","time_a":"Marrocos","time_b":"Escócia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"22/06 22:00","grupo":"Grupo C","estadio":"Boston","data_iso":"2026-06-22","round":"Matchday 13"},{"id":"wc2026-18","time_a":"Estados Unidos","time_b":"Turquia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"12/06 20:00","grupo":"Grupo D","estadio":"Los Angeles","data_iso":"2026-06-12","round":"Matchday 2"},{"id":"wc2026-19","time_a":"Austrália","time_b":"Paraguai","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"12/06 16:00","grupo":"Grupo D","estadio":"Dallas","data_iso":"2026-06-12","round":"Matchday 2"},{"id":"wc2026-20","time_a":"Estados Unidos","time_b":"Austrália","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"19/06 20:00","grupo":"Grupo D","estadio":"San Francisco","data_iso":"2026-06-19","round":"Matchday 9"},{"id":"wc2026-21","time_a":"Paraguai","time_b":"Turquia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"17/06 22:00","grupo":"Grupo D","estadio":"Kansas City","data_iso":"2026-06-17","round":"Matchday 7"},{"id":"wc2026-22","time_a":"Turquia","time_b":"Austrália","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"23/06 22:00","grupo":"Grupo D","estadio":"Philadelphia","data_iso":"2026-06-23","round":"Matchday 14"},{"id":"wc2026-23","time_a":"Paraguai","time_b":"Estados Unidos","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"23/06 22:00","grupo":"Grupo D","estadio":"Dallas","data_iso":"2026-06-23","round":"Matchday 14"},{"id":"wc2026-24","time_a":"Alemanha","time_b":"Costa do Marfim","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"15/06 13:00","grupo":"Grupo E","estadio":"Mexico City","data_iso":"2026-06-15","round":"Matchday 5"},{"id":"wc2026-25","time_a":"Equador","time_b":"Curaçao","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"11/06 19:00","grupo":"Grupo E","estadio":"Guadalajara (Zapopan)","data_iso":"2026-06-11","round":"Matchday 1"},{"id":"wc2026-26","time_a":"Alemanha","time_b":"Equador","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"20/06 13:00","grupo":"Grupo E","estadio":"Houston","data_iso":"2026-06-20","round":"Matchday 10"},{"id":"wc2026-27","time_a":"Curaçao","time_b":"Costa do Marfim","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"21/06 22:00","grupo":"Grupo E","estadio":"Atlanta","data_iso":"2026-06-21","round":"Matchday 11"},{"id":"wc2026-28","time_a":"Costa do Marfim","time_b":"Equador","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"24/06 22:00","grupo":"Grupo E","estadio":"Miami","data_iso":"2026-06-24","round":"Matchday 15"},{"id":"wc2026-29","time_a":"Curaçao","time_b":"Alemanha","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"24/06 22:00","grupo":"Grupo E","estadio":"Washington DC","data_iso":"2026-06-24","round":"Matchday 15"},{"id":"wc2026-30","time_a":"Japão","time_b":"Tunísia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"14/06 13:00","grupo":"Grupo F","estadio":"Seattle","data_iso":"2026-06-14","round":"Matchday 4"},{"id":"wc2026-31","time_a":"Holanda","time_b":"Suécia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"14/06 16:00","grupo":"Grupo F","estadio":"San Francisco","data_iso":"2026-06-14","round":"Matchday 4"},{"id":"wc2026-32","time_a":"Japão","time_b":"Holanda","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"16/06 13:00","grupo":"Grupo F","estadio":"Miami","data_iso":"2026-06-16","round":"Matchday 6"},{"id":"wc2026-33","time_a":"Suécia","time_b":"Tunísia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"15/06 22:00","grupo":"Grupo F","estadio":"Seattle","data_iso":"2026-06-15","round":"Matchday 5"},{"id":"wc2026-34","time_a":"Holanda","time_b":"Tunísia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"25/06 22:00","grupo":"Grupo F","estadio":"Toronto","data_iso":"2026-06-25","round":"Matchday 16"},{"id":"wc2026-35","time_a":"Suécia","time_b":"Japão","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"25/06 22:00","grupo":"Grupo F","estadio":"Vancouver","data_iso":"2026-06-25","round":"Matchday 16"},{"id":"wc2026-36","time_a":"Bélgica","time_b":"Egito","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"13/06 13:00","grupo":"Grupo G","estadio":"Miami","data_iso":"2026-06-13","round":"Matchday 3"},{"id":"wc2026-37","time_a":"Nova Zelândia","time_b":"Irã","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"15/06 16:00","grupo":"Grupo G","estadio":"Vancouver","data_iso":"2026-06-15","round":"Matchday 5"},{"id":"wc2026-38","time_a":"Bélgica","time_b":"Nova Zelândia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"18/06 16:00","grupo":"Grupo G","estadio":"Philadelphia","data_iso":"2026-06-18","round":"Matchday 8"},{"id":"wc2026-39","time_a":"Irã","time_b":"Egito","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"17/06 13:00","grupo":"Grupo G","estadio":"Washington DC","data_iso":"2026-06-17","round":"Matchday 7"},{"id":"wc2026-40","time_a":"Bélgica","time_b":"Irã","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"22/06 13:00","grupo":"Grupo G","estadio":"Kansas City","data_iso":"2026-06-22","round":"Matchday 13"},{"id":"wc2026-41","time_a":"Egito","time_b":"Nova Zelândia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"22/06 13:00","grupo":"Grupo G","estadio":"Dallas","data_iso":"2026-06-22","round":"Matchday 13"},{"id":"wc2026-42","time_a":"Espanha","time_b":"Arábia Saudita","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"15/06 23:00","grupo":"Grupo H","estadio":"Boston","data_iso":"2026-06-15","round":"Matchday 5"},{"id":"wc2026-43","time_a":"Uruguai","time_b":"Cape Verde","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"16/06 16:00","grupo":"Grupo H","estadio":"Kansas City","data_iso":"2026-06-16","round":"Matchday 6"},{"id":"wc2026-44","time_a":"Espanha","time_b":"Uruguai","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"21/06 13:00","grupo":"Grupo H","estadio":"Vancouver","data_iso":"2026-06-21","round":"Matchday 11"},{"id":"wc2026-45","time_a":"Cape Verde","time_b":"Arábia Saudita","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"18/06 19:00","grupo":"Grupo H","estadio":"Mexico City","data_iso":"2026-06-18","round":"Matchday 8"},{"id":"wc2026-46","time_a":"Arábia Saudita","time_b":"Uruguai","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"23/06 22:00","grupo":"Grupo H","estadio":"Seattle","data_iso":"2026-06-23","round":"Matchday 14"},{"id":"wc2026-47","time_a":"Cape Verde","time_b":"Espanha","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"23/06 22:00","grupo":"Grupo H","estadio":"Toronto","data_iso":"2026-06-23","round":"Matchday 14"},{"id":"wc2026-48","time_a":"França","time_b":"Iraque","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"16/06 13:00","grupo":"Grupo I","estadio":"Seattle","data_iso":"2026-06-16","round":"Matchday 7"},{"id":"wc2026-49","time_a":"Noruega","time_b":"Senegal","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"16/06 16:00","grupo":"Grupo I","estadio":"Kansas City","data_iso":"2026-06-16","round":"Matchday 7"},{"id":"wc2026-50","time_a":"Iraque","time_b":"Noruega","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"23/06 13:00","grupo":"Grupo I","estadio":"Boston","data_iso":"2026-06-23","round":"Matchday 14"},{"id":"wc2026-51","time_a":"Senegal","time_b":"França","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"23/06 16:00","grupo":"Grupo I","estadio":"New York/New Jersey","data_iso":"2026-06-23","round":"Matchday 14"},{"id":"wc2026-52","time_a":"Iraque","time_b":"Senegal","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"27/06 22:00","grupo":"Grupo I","estadio":"Houston","data_iso":"2026-06-27","round":"Matchday 23"},{"id":"wc2026-53","time_a":"Noruega","time_b":"França","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"27/06 22:00","grupo":"Grupo I","estadio":"Los Angeles","data_iso":"2026-06-27","round":"Matchday 23"},{"id":"wc2026-54","time_a":"Argentina","time_b":"Argélia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"16/06 19:00","grupo":"Grupo J","estadio":"Miami Gardens","data_iso":"2026-06-16","round":"Matchday 7"},{"id":"wc2026-55","time_a":"Áustria","time_b":"Jordânia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"16/06 22:00","grupo":"Grupo J","estadio":"Philadelphia","data_iso":"2026-06-16","round":"Matchday 7"},{"id":"wc2026-56","time_a":"Argélia","time_b":"Áustria","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"23/06 19:00","grupo":"Grupo J","estadio":"Dallas","data_iso":"2026-06-23","round":"Matchday 14"},{"id":"wc2026-57","time_a":"Jordânia","time_b":"Argentina","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"23/06 22:00","grupo":"Grupo J","estadio":"Santa Clara","data_iso":"2026-06-23","round":"Matchday 14"},{"id":"wc2026-58","time_a":"Argélia","time_b":"Jordânia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"28/06 16:00","grupo":"Grupo J","estadio":"Kansas City","data_iso":"2026-06-28","round":"Matchday 24"},{"id":"wc2026-59","time_a":"Áustria","time_b":"Argentina","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"28/06 16:00","grupo":"Grupo J","estadio":"Atlanta","data_iso":"2026-06-28","round":"Matchday 24"},{"id":"wc2026-60","time_a":"Portugal","time_b":"Colômbia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"17/06 13:00","grupo":"Grupo K","estadio":"Boston","data_iso":"2026-06-17","round":"Matchday 7"},{"id":"wc2026-61","time_a":"Uzbequistão","time_b":"DR Congo","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"17/06 16:00","grupo":"Grupo K","estadio":"Los Angeles","data_iso":"2026-06-17","round":"Matchday 7"},{"id":"wc2026-62","time_a":"Colômbia","time_b":"Uzbequistão","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"24/06 13:00","grupo":"Grupo K","estadio":"Houston","data_iso":"2026-06-24","round":"Matchday 14"},{"id":"wc2026-63","time_a":"DR Congo","time_b":"Portugal","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"24/06 16:00","grupo":"Grupo K","estadio":"Toronto","data_iso":"2026-06-24","round":"Matchday 14"},{"id":"wc2026-64","time_a":"Colômbia","time_b":"DR Congo","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"28/06 16:00","grupo":"Grupo K","estadio":"East Rutherford","data_iso":"2026-06-28","round":"Matchday 25"},{"id":"wc2026-65","time_a":"Uzbequistão","time_b":"Portugal","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"28/06 16:00","grupo":"Grupo K","estadio":"Philadelphia","data_iso":"2026-06-28","round":"Matchday 25"},{"id":"wc2026-66","time_a":"Inglaterra","time_b":"Panamá","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"17/06 19:00","grupo":"Grupo L","estadio":"Santa Clara","data_iso":"2026-06-17","round":"Matchday 7"},{"id":"wc2026-67","time_a":"Croácia","time_b":"Gana","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"17/06 22:00","grupo":"Grupo L","estadio":"Miami Gardens","data_iso":"2026-06-17","round":"Matchday 7"},{"id":"wc2026-68","time_a":"Gana","time_b":"Inglaterra","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"24/06 19:00","grupo":"Grupo L","estadio":"Seattle","data_iso":"2026-06-24","round":"Matchday 14"},{"id":"wc2026-69","time_a":"Panamá","time_b":"Croácia","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"24/06 22:00","grupo":"Grupo L","estadio":"Boston","data_iso":"2026-06-24","round":"Matchday 14"},{"id":"wc2026-70","time_a":"Gana","time_b":"Panamá","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"28/06 22:00","grupo":"Grupo L","estadio":"Dallas","data_iso":"2026-06-28","round":"Matchday 26"},{"id":"wc2026-71","time_a":"Croácia","time_b":"Inglaterra","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"28/06 22:00","grupo":"Grupo L","estadio":"Kansas City","data_iso":"2026-06-28","round":"Matchday 26"}];
+    const JOGOS_OITAVAS = [{"id":"oit-1","time_a":"1A","time_b":"2B","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"29/06 13:00","grupo":"Oitavas","estadio":"","data_iso":"2026-06-29","round":"Round of 16"},{"id":"oit-2","time_a":"1C","time_b":"2D","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"29/06 16:00","grupo":"Oitavas","estadio":"","data_iso":"2026-06-29","round":"Round of 16"},{"id":"oit-3","time_a":"1B","time_b":"2A","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"30/06 13:00","grupo":"Oitavas","estadio":"","data_iso":"2026-06-30","round":"Round of 16"},{"id":"oit-4","time_a":"1D","time_b":"2C","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"30/06 16:00","grupo":"Oitavas","estadio":"","data_iso":"2026-06-30","round":"Round of 16"},{"id":"oit-5","time_a":"1E","time_b":"2F","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"01/07 13:00","grupo":"Oitavas","estadio":"","data_iso":"2026-07-01","round":"Round of 16"},{"id":"oit-6","time_a":"1G","time_b":"2H","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"01/07 16:00","grupo":"Oitavas","estadio":"","data_iso":"2026-07-01","round":"Round of 16"},{"id":"oit-7","time_a":"1F","time_b":"2E","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"02/07 13:00","grupo":"Oitavas","estadio":"","data_iso":"2026-07-02","round":"Round of 16"},{"id":"oit-8","time_a":"1H","time_b":"2G","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"02/07 16:00","grupo":"Oitavas","estadio":"","data_iso":"2026-07-02","round":"Round of 16"}];
+    const JOGOS_QUARTAS = [{"id":"qua-1","time_a":"V Oit1","time_b":"V Oit3","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"05/07 13:00","grupo":"Quartas","estadio":"","data_iso":"2026-07-05","round":"Quarter-finals"},{"id":"qua-2","time_a":"V Oit2","time_b":"V Oit4","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"05/07 16:00","grupo":"Quartas","estadio":"","data_iso":"2026-07-05","round":"Quarter-finals"},{"id":"qua-3","time_a":"V Oit5","time_b":"V Oit7","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"06/07 13:00","grupo":"Quartas","estadio":"","data_iso":"2026-07-06","round":"Quarter-finals"},{"id":"qua-4","time_a":"V Oit6","time_b":"V Oit8","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"06/07 16:00","grupo":"Quartas","estadio":"","data_iso":"2026-07-06","round":"Quarter-finals"}];
+    const JOGOS_SEMI = [{"id":"sem-1","time_a":"V Qua1","time_b":"V Qua2","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"09/07 16:00","grupo":"Semi","estadio":"","data_iso":"2026-07-09","round":"Semi-finals"},{"id":"sem-2","time_a":"V Qua3","time_b":"V Qua4","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"10/07 16:00","grupo":"Semi","estadio":"","data_iso":"2026-07-10","round":"Semi-finals"}];
+    const JOGOS_FINAL = [{"id":"fin-1","time_a":"V Sem1","time_b":"V Sem2","placar_a":null,"placar_b":null,"status":"AGENDADO","horario_brasilia":"13/07 16:00","grupo":"Final","estadio":"","data_iso":"2026-07-13","round":"Final"}];
+    const JOGOS_TODOS = [...JOGOS_GRUPOS, ...JOGOS_OITAVAS, ...JOGOS_QUARTAS, ...JOGOS_SEMI, ...JOGOS_FINAL];
+    const TODOS_TIMES = ["Alemanha","Argentina","Argélia","Arábia Saudita","Austrália","Bosnia & Herzegovina","Brasil","Bélgica","Canadá","Cape Verde","Colômbia","Coreia do Sul","Costa do Marfim","Croácia","Curaçao","DR Congo","Egito","Equador","Escócia","Espanha","Estados Unidos","França","Gana","Haiti","Holanda","Inglaterra","Iraque","Irã","Japão","Jordânia","Marrocos","México","Noruega","Nova Zelândia","Panamá","Paraguai","Portugal","Qatar","República Tcheca","Senegal","Suíça","Suécia","Tunísia","Turquia","Uruguai","Uzbequistão","África do Sul","Áustria"];
+    const ISO = {"México":"mx","África do Sul":"za","Coreia do Sul":"kr","República Tcheca":"cz","Canadá":"ca","Bosnia & Herzegovina":"ba","Qatar":"qa","Suíça":"ch","Brasil":"br","Marrocos":"ma","Escócia":"gb-sct","Haiti":"ht","Estados Unidos":"us","Turquia":"tr","Austrália":"au","Paraguai":"py","Alemanha":"de","Costa do Marfim":"ci","Equador":"ec","Curaçao":"cw","Japão":"jp","Tunísia":"tn","Holanda":"nl","Suécia":"se","Bélgica":"be","Egito":"eg","Nova Zelândia":"nz","Irã":"ir","Espanha":"es","Arábia Saudita":"sa","Uruguai":"uy","Cape Verde":"cv","França":"fr","Iraque":"iq","Noruega":"no","Senegal":"sn","Argentina":"ar","Argélia":"dz","Áustria":"at","Jordânia":"jo","Portugal":"pt","Colômbia":"co","Uzbequistão":"uz","DR Congo":"cd","Inglaterra":"gb-eng","Croácia":"hr","Gana":"gh","Panamá":"pa"};
+    const C = { bg: "#0A0E1A", card: "#111827", cardBorder: "#1E2A45", azul: "#0033A0", azulClaro: "#1a4fd6", vermelho: "#C8102E", dourado: "#FFD700", douradoEscuro: "#B8860B", verde: "#16a34a", verdeClaro: "#22c55e", texto: "#F0F4FF", textoSec: "#8B9CC8", laranja: "#f97316" };
+
+    function isJogoBloqueado(jogo) {
+      try { const dataJogo = new Date(jogo.data_iso + 'T00:00:00-03:00'); return new Date() >= dataJogo; }
+      catch (_) { return true; }
+    }
+    function calcularPontos(palpite, resultado) {
+      if (!resultado || resultado.placar_a === null) return { pts: 0, tipo: "pendente" };
+      const pa = palpite.gols_a, pb = palpite.gols_b, ra = resultado.placar_a, rb = resultado.placar_b;
+      if (pa === ra && pb === rb) return { pts: 5, tipo: "placar_exato" };
+      const resP = pa > pb ? "A" : pa < pb ? "B" : "E", resR = ra > rb ? "A" : ra < rb ? "B" : "E";
+      if (resP !== resR) return { pts: 0, tipo: "errou" };
+      if (resP !== "E" && Math.abs(pa - pb) === Math.abs(ra - rb)) return { pts: 4, tipo: "diferenca_certa" };
+      return { pts: 3, tipo: "vencedor_certo" };
+    }
+    function getFaseAtual(resultados) {
+      if (!resultados) return "grupos";
+      if (!JOGOS_GRUPOS.every(j => resultados[j.id]?.placar_a !== null)) return "grupos";
+      if (!JOGOS_OITAVAS.every(j => resultados[j.id]?.placar_a !== null)) return "oitavas";
+      if (!JOGOS_QUARTAS.every(j => resultados[j.id]?.placar_a !== null)) return "quartas";
+      if (!JOGOS_SEMI.every(j => resultados[j.id]?.placar_a !== null)) return "semi";
+      return "final";
+    }
+    function pontosCampeaoPorFase(fase) { const mapa = { grupos: 20, oitavas: 15, quartas: 10, semi: 5, final: 2 }; return mapa[fase] || 20; }
+    function calcularPontosCartela(palpites, resultados, campeao, campeaoFase, campeoReal) {
+      let total = 0;
+      for (const jogoId in palpites) {
+        if (jogoId === "__campeo") continue;
+        const resultado = resultados && resultados[jogoId];
+        total += calcularPontos(palpites[jogoId], resultado).pts;
+      }
+      if (campeoReal && campeao === campeoReal) total += pontosCampeaoPorFase(campeaoFase || "grupos");
+      return total;
+    }
+
+    function baixarCartelaHTML(cartela, participante) {
+      if (!cartela) return;
+      const palpites = cartela.palpites || {};
+      const todosJogos = [...JOGOS_GRUPOS, ...JOGOS_OITAVAS, ...JOGOS_QUARTAS, ...JOGOS_SEMI, ...JOGOS_FINAL];
+      const gruposPrint = [...new Set(todosJogos.map(j => j.grupo))];
+      const agora = new Date().toLocaleString("pt-BR");
+      const nomeArquivo = `cartela_${(cartela.nome || "bolao").replace(/[^a-z0-9]/gi, "_")}_${participante.replace(/[^a-z0-9]/gi, "_")}.html`;
+      let html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cartela - Bolão Copa 2026</title><style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:30px;color:#000;background:#fff}
+.header{text-align:center;margin-bottom:20px;border-bottom:2px solid #000;padding-bottom:10px}
+.header h1{font-size:22px;font-weight:900}.header .sub{font-size:14px;color:#555;margin-top:4px}.header .data{font-size:11px;color:#999;margin-top:2px}
+.grupo{margin-bottom:16px}.grupo-titulo{font-weight:800;font-size:13px;margin-bottom:4px;background:#eee;padding:4px 8px}
+table{width:100%;border-collapse:collapse;font-size:11px}th{border:1px solid #ccc;padding:4px;text-align:left;background:#f8f8f8}
+td{border:1px solid #ccc;padding:4px 8px;font-size:12px}.placar{text-align:center;font-weight:700;font-size:13px}
+.horario{color:#999;font-size:10px;margin-left:6px}.footer{margin-top:12px;font-size:13px;border-top:1px solid #ccc;padding-top:8px}
+@media print{body{padding:15px}.no-print{display:none}}
+</style></head><body><div class="header"><h1>BOLÃO DA COPA 2026</h1><div class="sub">${(cartela.nome || "Cartela").replace(/</g,"&lt;")} — ${participante.replace(/</g,"&lt;")}</div><div class="data">Emitido em ${agora}</div><div class="no-print" style="margin-top:8px"><button onclick="window.print()" style="padding:6px 20px;font-size:14px;font-weight:700;cursor:pointer;background:#0033A0;color:#fff;border:none;border-radius:4px">🖨️ Imprimir</button></div></div>`;
+      gruposPrint.forEach(grupo => {
+        const jogos = todosJogos.filter(j => j.grupo === grupo);
+        if (!jogos.some(j => palpites[j.id]?.gols_a !== undefined)) return;
+        html += `<div class="grupo"><div class="grupo-titulo">${grupo.toUpperCase()}</div><table><thead><tr><th>Jogo</th><th style="text-align:center">Placar</th></tr></thead><tbody>`;
+        jogos.forEach(j => { const p = palpites[j.id]; html += `<tr><td>${j.time_a.replace(/</g,"&lt;")} × ${j.time_b.replace(/</g,"&lt;")} <span class="horario">${j.horario_brasilia}</span></td><td class="placar">${p ? p.gols_a+"-"+p.gols_b : "—"}</td></tr>`; });
+        html += `</tbody></table></div>`;
+      });
+      const faseLabel = cartela.campeao_fase === "grupos" ? "Fase de Grupos" : cartela.campeao_fase === "oitavas" ? "Oitavas" : cartela.campeao_fase === "quartas" ? "Quartas" : cartela.campeao_fase === "semi" ? "Semifinal" : "Final";
+      html += `<div class="footer"><strong>Campeão:</strong> ${(cartela.campeao || "—").replace(/</g,"&lt;")}${cartela.campeao_fase ? `<span style="color:#666;font-size:11px;margin-left:8px">(definido na ${faseLabel})</span>` : ""}</div></body></html>`;
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = nomeArquivo;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+
+    const badge = (txt, bg) => <span style={{ background: bg, color: "#fff", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>{txt}</span>;
+    const Card = ({ children, style = {} }) => <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 12, padding: 16, ...style }}>{children}</div>;
+    const Btn = ({ children, onClick, cor = "#0033A0", disabled = false, style = {} }) => <button onClick={onClick} disabled={disabled} style={{ background: disabled ? "#333" : cor, color: disabled ? "#666" : "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 700, fontSize: 14, cursor: disabled ? "not-allowed" : "pointer", transition: "opacity .15s", ...style }}>{children}</button>;
+    const Flag = ({ pais, size = 24 }) => <img src={`https://flagcdn.com/w40/${ISO[pais] || "un"}.png`} alt={pais} style={{ width: size * 1.4, height: size, objectFit: "cover", borderRadius: 3 }} />;
+    const StatusBadge = ({ status }) => { const c = { validada: { cor: "#16a34a", label: "✅ Válida" }, aguardando: { cor: "#f59e0b", label: "⏳ Aguardando" }, rejeitada: { cor: "#dc2626", label: "❌ Rejeitada" } }[status] || { cor: "#f59e0b", label: "⏳ Aguardando" }; return <span style={{ background: c.cor + "22", color: c.cor, border: `1px solid ${c.cor}44`, borderRadius: 999, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>{c.label}</span>; };
+
+    const PainelFinanceiro = ({ totalParticipantes, valorAposta }) => {
+      const v = valorAposta || 20;
+      if (totalParticipantes === 0) return null;
+      return <div style={{ background: "linear-gradient(135deg, #0d1b2a, #1b2838)", border: `2px solid ${C.dourado}44`, borderRadius: 12, padding: 16, marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span style={{ color: C.dourado, fontWeight: 800, fontSize: 13, letterSpacing: 0.5 }}>💰 Caixa Acumulado</span>
+          <span style={{ color: C.dourado, fontSize: 20, fontWeight: 900 }}>R$ {(totalParticipantes * v).toFixed(2).replace(".", ",")}</span>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 12, color: C.textoSec, marginBottom: 4 }}>
+          <span>🥇 1º: <strong style={{ color: C.dourado }}>R$ {(totalParticipantes * v * 0.6).toFixed(2).replace(".", ",")}</strong> (60%)</span>
+          <span>🥈 2º: <strong style={{ color: C.texto }}>R$ {(totalParticipantes * v * 0.25).toFixed(2).replace(".", ",")}</strong> (25%)</span>
+          <span>🥉 3º: <strong style={{ color: C.laranja }}>R$ {(totalParticipantes * v * 0.15).toFixed(2).replace(".", ",")}</strong> (15%)</span>
+        </div>
+        <div style={{ color: C.textoSec, fontSize: 11, borderTop: `1px solid ${C.cardBorder}`, paddingTop: 6, marginTop: 4 }}>{totalParticipantes} cartela{totalParticipantes !== 1 ? "s" : ""} × R$ {v.toFixed(2).replace(".", ",")}</div>
+      </div>;
+    };
+
+    const ModalInstrucoes = ({ onFechar }) => {
+      const [fechando, setFechando] = useState(false);
+      const handleFechar = () => { setFechando(true); setTimeout(onFechar, 200); };
+      return <div onClick={handleFechar} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "overlayIn .2s ease", opacity: fechando ? 0 : 1, transition: "opacity .2s" }}>
+        <div onClick={e => e.stopPropagation()} className="scroll-suave" style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: 28, maxWidth: 420, width: "100%", maxHeight: "90vh", overflowY: "auto", animation: "fadeIn .25s ease", transform: fechando ? "scale(0.95)" : "scale(1)", transition: "transform .2s, opacity .2s", opacity: fechando ? 0 : 1 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <div style={{ color: C.dourado, fontWeight: 900, fontSize: 18 }}>📋 Regras do Bolão</div>
+            <button onClick={handleFechar} style={{ background: "transparent", border: "none", color: C.textoSec, fontSize: 22, cursor: "pointer", padding: 4 }}>✕</button>
+          </div>
+          <div style={{ color: C.texto, fontSize: 14, lineHeight: 1.7 }}>
+            <div style={{ marginBottom: 16, padding: 12, background: "#0d1b2a", borderRadius: 8, borderLeft: `3px solid ${C.dourado}` }}>
+              <strong style={{ color: C.dourado }}>💰 Cartela Fechada</strong>
+              <div style={{ color: C.textoSec, fontSize: 13, marginTop: 4 }}>Cada <strong style={{ color: C.texto }}>Cartela</strong> contém palpites para todos os jogos da Fase de Grupos + palpite do campeão. Você pode ter <strong style={{ color: C.dourado }}>múltiplas cartelas</strong> para aumentar suas chances! Cada cartela precisa ser <strong style={{ color: C.verde }}>validada pelo administrador</strong> após o pagamento.</div>
+            </div>
+            <div style={{ marginBottom: 16 }}><strong style={{ color: C.verdeClaro }}>⚽ Pontuação por Jogo</strong>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, fontSize: 13 }}>
+                <span><span style={{ color: C.dourado, fontWeight: 700 }}>5 pts</span> — Placar Exato</span>
+                <span><span style={{ color: C.verdeClaro, fontWeight: 700 }}>4 pts</span> — Diferença Certa (vitórias)</span>
+                <span><span style={{ color: C.verde, fontWeight: 700 }}>3 pts</span> — Vencedor ou Empate</span>
+                <span><span style={{ color: C.vermelho, fontWeight: 700 }}>0 pts</span> — Erro</span>
+              </div>
+            </div>
+            <div style={{ marginBottom: 16, padding: 12, background: "#0d1b2a", borderRadius: 8, borderLeft: `3px solid ${C.dourado}` }}>
+              <strong style={{ color: C.dourado }}>🏆 Campeão: Pontuação Progressiva</strong>
+              <div style={{ color: C.textoSec, fontSize: 13, marginTop: 4 }}>Os pontos por acertar o campeão dependem de quando você salvou o palpite:</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 6, fontSize: 12, color: C.textoSec }}>
+                <span>• Fase de Grupos: <strong style={{ color: C.dourado }}>20 pts</strong></span>
+                <span>• Oitavas de Final: <strong style={{ color: C.dourado }}>15 pts</strong></span>
+                <span>• Quartas de Final: <strong style={{ color: C.dourado }}>10 pts</strong></span>
+                <span>• Semifinais: <strong style={{ color: C.dourado }}>5 pts</strong></span>
+                <span>• Final: <strong style={{ color: C.dourado }}>2 pts</strong></span>
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <strong style={{ color: C.texto }}>🏅 Premiação</strong>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, fontSize: 13, color: C.textoSec }}>
+                <span>🥇 1º — <strong style={{ color: C.dourado }}>60%</strong></span>
+                <span>🥈 2º — <strong style={{ color: C.texto }}>25%</strong></span>
+                <span>🥉 3º — <strong style={{ color: C.laranja }}>15%</strong></span>
+              </div>
+            </div>
+          </div>
+          <Btn onClick={handleFechar} cor={C.dourado} style={{ width: "100%", color: "#000", marginTop: 8 }}>Entendi! →</Btn>
+        </div>
+      </div>;
+    };
+
+    const JogoCard = ({ jogo, palpite, onChange, disabled }) => {
+      const [ga, setGa] = useState(palpite?.gols_a ?? ""); const [gb, setGb] = useState(palpite?.gols_b ?? "");
+      useEffect(() => { setGa(palpite?.gols_a ?? ""); setGb(palpite?.gols_b ?? ""); }, [palpite]);
+      const handle = (side, val) => {
+        const n = val === "" ? "" : Math.max(0, Math.min(99, parseInt(val) || 0));
+        if (side === "a") setGa(n); else setGb(n);
+        const newGa = side === "a" ? n : ga, newGb = side === "b" ? n : gb;
+        if (newGa !== "" && newGb !== "") onChange(jogo.id, { gols_a: Number(newGa), gols_b: Number(newGb) });
+      };
+      const salvo = palpite?.gols_a !== undefined; const bloqueado = disabled || isJogoBloqueado(jogo);
+      return <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 12, padding: 16, marginBottom: 10, opacity: bloqueado ? 0.65 : 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          {badge(jogo.grupo, C.azul)}
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {bloqueado && <span style={{ fontSize: 11, color: C.vermelho, fontWeight: 700 }}>🔒</span>}
+            <span style={{ color: C.textoSec, fontSize: 12 }}>{jogo.horario_brasilia}</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ flex: 1, textAlign: "center" }}><Flag pais={jogo.time_a} size={28} /><div style={{ color: C.texto, fontSize: 13, fontWeight: 700, marginTop: 4 }}>{jogo.time_a}</div></div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="number" inputMode="numeric" pattern="[0-9]*" min="0" max="99" value={ga} onChange={e => handle("a", e.target.value)} disabled={bloqueado} style={{ width: 48, textAlign: "center", fontSize: 20, fontWeight: 800, background: "#1a2234", border: `2px solid ${salvo && !bloqueado ? C.verde : bloqueado ? C.vermelho + "66" : C.cardBorder}`, borderRadius: 8, color: bloqueado ? C.textoSec : C.texto, padding: "6px 0" }} />
+            <span style={{ color: C.textoSec, fontSize: 18, fontWeight: 700 }}>×</span>
+            <input type="number" inputMode="numeric" pattern="[0-9]*" min="0" max="99" value={gb} onChange={e => handle("b", e.target.value)} disabled={bloqueado} style={{ width: 48, textAlign: "center", fontSize: 20, fontWeight: 800, background: "#1a2234", border: `2px solid ${salvo && !bloqueado ? C.verde : bloqueado ? C.vermelho + "66" : C.cardBorder}`, borderRadius: 8, color: bloqueado ? C.textoSec : C.texto, padding: "6px 0" }} />
+          </div>
+          <div style={{ flex: 1, textAlign: "center" }}><Flag pais={jogo.time_b} size={28} /><div style={{ color: C.texto, fontSize: 13, fontWeight: 700, marginTop: 4 }}>{jogo.time_b}</div></div>
+        </div>
+      </div>;
+    };
+
+    const TelaCadastro = ({ onEntrar, onShowInstrucoes }) => {
+      const [nome, setNome] = useState(""); const [senha, setSenha] = useState(""); const [confirmarSenha, setConfirmarSenha] = useState(""); const [erro, setErro] = useState(""); const [entrando, setEntrando] = useState(false); const [modo, setModo] = useState(null);
+      const handleAcao = async (isCadastro) => {
+        if (!nome.trim() || senha.length !== 6) return;
+        if (isCadastro && senha !== confirmarSenha) { setErro("Senhas não conferem!"); return; }
+        setEntrando(true); setErro("");
+        try { await onEntrar(nome.trim(), senha, isCadastro); } catch (e) { setErro(e.message); setEntrando(false); }
+      };
+      return <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <button onClick={onShowInstrucoes} style={{ position: "absolute", top: 16, right: 16, background: "transparent", border: "none", fontSize: 24, cursor: "pointer", color: C.textoSec }}>❓</button>
+        <div style={{ fontSize: 64, marginBottom: 8 }}>🏆</div>
+        <h1 style={{ color: C.dourado, fontSize: 28, fontWeight: 900, margin: 0, letterSpacing: 1, textAlign: "center" }}>BOLÃO DA COPA 2026</h1>
+        <p style={{ color: C.textoSec, marginBottom: 32, fontSize: 15 }}>Bolão 2026 — Faça seus palpites!</p>
+        <Card style={{ width: "100%", maxWidth: 380 }}>
+          <div style={{ color: C.texto, fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Seu nome no bolão</div>
+          <input value={nome} onChange={e => { setNome(e.target.value); setErro(""); setModo(null); }} placeholder="Ex: Perez, João, Família Silva..." style={{ width: "100%", background: "#1a2234", border: `2px solid ${erro ? C.vermelho : C.cardBorder}`, borderRadius: 8, color: C.texto, padding: "10px 14px", fontSize: 16, boxSizing: "border-box", marginBottom: 10 }} />
+          <div style={{ color: C.texto, fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Senha de 6 dígitos</div>
+          <input value={senha} onChange={e => { const v = e.target.value.replace(/\D/g, "").slice(0, 6); setSenha(v); setErro(""); setConfirmarSenha(""); }} type="password" maxLength={6} inputMode="numeric" placeholder="••••••" style={{ width: "100%", background: "#1a2234", border: `2px solid ${erro ? C.vermelho : C.cardBorder}`, borderRadius: 8, color: C.texto, padding: "10px 14px", fontSize: 16, boxSizing: "border-box", marginBottom: 14, letterSpacing: 8, textAlign: "center" }} />
+          {modo === "cadastro" && <><div style={{ color: C.texto, fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Confirmar senha</div>
+          <input value={confirmarSenha} onChange={e => { const v = e.target.value.replace(/\D/g, "").slice(0, 6); setConfirmarSenha(v); setErro(""); }} type="password" maxLength={6} inputMode="numeric" placeholder="••••••" onKeyDown={e => e.key === "Enter" && nome.trim() && senha.length === 6 && confirmarSenha === senha && handleAcao(true)} style={{ width: "100%", background: confirmarSenha.length > 0 && confirmarSenha !== senha ? "#2a1a1a" : "#1a2234", border: `2px solid ${confirmarSenha.length > 0 && confirmarSenha !== senha ? C.vermelho : C.cardBorder}`, borderRadius: 8, color: C.texto, padding: "10px 14px", fontSize: 16, boxSizing: "border-box", marginBottom: 14, letterSpacing: 8, textAlign: "center" }} /></>}
+          {erro && <div style={{ color: C.vermelho, fontSize: 13, marginBottom: 10, textAlign: "center" }}>{erro}</div>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn onClick={() => { setModo(null); handleAcao(false); }} style={{ flex: 1 }} disabled={!nome.trim() || senha.length !== 6 || entrando}>{entrando ? "Entrando..." : "Entrar"}</Btn>
+            <Btn onClick={() => { if (modo !== "cadastro") setModo("cadastro"); else handleAcao(true); }} cor={C.verde} style={{ flex: 1 }} disabled={!nome.trim() || senha.length !== 6 || (modo === "cadastro" && (!confirmarSenha || confirmarSenha !== senha)) || entrando}>{entrando ? "Entrando..." : modo === "cadastro" ? "Confirmar Cadastro" : "Cadastrar"}</Btn>
+          </div>
+        </Card>
+      </div>;
+    };
+
+    const TelaMinhasCartelas = ({ participante, cartelas, onNovaCartela, onVerCartela, onVerRanking, onExcluirCartela, onDownloadCartela, onSair, onExcluirConta, onShowInstrucoes, config }) => {
+      const minhas = cartelas.filter(c => c.participante === participante);
+      const valorAposta = config?.valor_aposta || 20;
+      return <div style={{ minHeight: "100vh", background: C.bg, paddingBottom: 80 }}>
+        <div style={{ background: `linear-gradient(135deg, ${C.azul}, #001a66)`, padding: "16px 20px 14px", borderBottom: `2px solid ${C.dourado}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div><div style={{ color: C.dourado, fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 2 }}>BOLÃO DA COPA 2026</div><div style={{ color: C.texto, fontSize: 20, fontWeight: 900 }}>Olá, {participante}! 👋</div></div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={onShowInstrucoes} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 18, cursor: "pointer" }}>❓</button>
+              <button onClick={onVerRanking} style={{ background: C.dourado, color: "#000", border: "none", borderRadius: 8, padding: "8px 14px", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>🏅 Ranking</button>
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: "14px 16px 0" }}>
+          <PainelFinanceiro totalParticipantes={cartelas.length} valorAposta={valorAposta} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ color: C.texto, fontWeight: 800, fontSize: 16 }}>Minhas Cartelas</div>
+            <Btn onClick={onNovaCartela} cor={C.verde} style={{ padding: "8px 16px", fontSize: 13 }}>+ Nova</Btn>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <button onClick={onSair} style={{ flex: 1, background: "transparent", border: `1px solid ${C.cardBorder}`, borderRadius: 8, color: C.textoSec, padding: "8px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>← Sair</button>
+            <button onClick={onExcluirConta} style={{ flex: 1, background: "transparent", border: `1px solid ${C.vermelho}44`, borderRadius: 8, color: C.vermelho, padding: "8px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>🗑️ Excluir conta</button>
+          </div>
+          {minhas.length === 0 && <Card><div style={{ textAlign: "center", color: C.textoSec, padding: 20 }}>Você ainda não tem cartelas. Clique em + Nova para criar!</div></Card>}
+          {minhas.map(c => {
+            const preenchidos = Object.keys(c.palpites || {}).filter(k => k !== "__campeo").length;
+            return <div key={c.id} onClick={() => onVerCartela(c)} style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 12, padding: 16, marginBottom: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+              <div><div style={{ fontSize: 28 }}>{c.status === "validada" ? "✅" : c.status === "rejeitada" ? "❌" : "⏳"}</div></div>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: C.texto, fontWeight: 700, fontSize: 15 }}>{c.nome || "Cartela"}</div>
+                <div style={{ color: C.textoSec, fontSize: 12, marginTop: 2 }}>{preenchidos}/{JOGOS_TODOS.length} palpites · Campeão: {c.campeao || "—"}</div>
+                <div style={{ marginTop: 4 }}><StatusBadge status={c.status} /></div>
+              </div>
+              <button onClick={e => { e.stopPropagation(); onDownloadCartela(c); }} style={{ background: "transparent", border: "none", color: C.textoSec, fontSize: 16, cursor: "pointer", padding: "4px" }}>⬇️</button>
+              <button onClick={e => { e.stopPropagation(); onExcluirCartela(c.id); }} style={{ background: "transparent", border: "none", color: C.vermelho, fontSize: 18, cursor: "pointer", padding: "4px" }}>🗑️</button>
+            </div>;
+          })}
+        </div>
+      </div>;
+    };
+
+    const TelaPreencherCartela = ({ cartela, onSalvar, onVoltar, resultados, config }) => {
+      const [palpites, setPalpites] = useState(cartela?.palpites || {});
+      const [campeao, setCampeao] = useState(cartela?.campeao || "");
+      const [grupoAtivo, setGrupoAtivo] = useState("Grupo A");
+      const faseAtual = getFaseAtual(resultados);
+      const fasesParaMostrar = ["Grupo A","Grupo B","Grupo C","Grupo D","Grupo E","Grupo F","Grupo G","Grupo H","Grupo I","Grupo J","Grupo K","Grupo L"];
+      if (faseAtual !== "grupos") fasesParaMostrar.push("Oitavas");
+      if (["quartas","semi","final"].includes(faseAtual)) fasesParaMostrar.push("Quartas");
+      if (["semi","final"].includes(faseAtual)) fasesParaMostrar.push("Semi");
+      if (faseAtual === "final") fasesParaMostrar.push("Final");
+      const cartelaBloqueada = cartela?.status === "validada";
+      const isNew = !cartela?.id;
+      const handlePalpite = (jogoId, valor) => setPalpites(prev => ({ ...prev, [jogoId]: valor }));
+      const handleSalvar = () => { onSalvar({ ...cartela, palpites, campeao, campeao_fase: cartela?.campeao_fase || (campeao ? faseAtual : undefined) }); };
+      const totalJogos = (() => { let t = JOGOS_GRUPOS.length; if (faseAtual !== "grupos") t += JOGOS_OITAVAS.length; if (["quartas","semi","final"].includes(faseAtual)) t += JOGOS_QUARTAS.length; if (["semi","final"].includes(faseAtual)) t += JOGOS_SEMI.length; if (faseAtual === "final") t += JOGOS_FINAL.length; return t; })();
+      const totalPalpitados = Object.keys(palpites).filter(k => k !== "__campeo").length;
+      const jogosPorGrupo = (grupo) => { if (grupo.startsWith("Grupo")) return JOGOS_GRUPOS.filter(j => j.grupo === grupo); if (grupo === "Oitavas") return JOGOS_OITAVAS; if (grupo === "Quartas") return JOGOS_QUARTAS; if (grupo === "Semi") return JOGOS_SEMI; if (grupo === "Final") return JOGOS_FINAL; return []; };
+      return <div className="scroll-suave" style={{ minHeight: "100vh", background: C.bg, paddingBottom: 80 }}>
+        <div style={{ background: `linear-gradient(135deg, ${C.verde}, #0d6b2a)`, padding: "14px 20px", borderBottom: `2px solid ${C.dourado}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+            <button onClick={onVoltar} style={{ background: "rgba(0,0,0,0.2)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>← Voltar</button>
+            <div style={{ flex: 1 }}><div style={{ color: "#fff", fontSize: 18, fontWeight: 900 }}>{cartela?.nome || "Nova Cartela"}</div><div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>{isNew ? "Nova" : "Editando"} · R$ {(config?.valor_aposta || 20).toFixed(2).replace(".", ",")}</div></div>
+          </div>
+        </div>
+        <div style={{ padding: "14px 16px 0" }}>
+          {cartelaBloqueada && <div style={{ background: C.vermelho, color: "#fff", padding: "10px 14px", borderRadius: 8, marginBottom: 14, fontSize: 12, fontWeight: 700, textAlign: "center" }}>🔒 Esta cartela foi validada e está bloqueada.</div>}
+          <Card style={{ marginBottom: 14, border: `2px solid ${C.dourado}44` }}>
+            <div style={{ color: C.dourado, fontWeight: 800, fontSize: 14, marginBottom: 10 }}>🏆 Campeão +{pontosCampeaoPorFase(faseAtual)} pts ({faseAtual === "grupos" ? "Fase de Grupos" : faseAtual === "oitavas" ? "Oitavas" : faseAtual === "quartas" ? "Quartas" : faseAtual === "semi" ? "Semifinal" : "Final"})</div>
+            <select value={campeao} onChange={e => setCampeao(e.target.value)} disabled={cartelaBloqueada} style={{ width: "100%", background: "#1a2234", border: `2px solid ${campeao ? C.dourado : C.cardBorder}`, borderRadius: 8, color: campeao ? C.dourado : C.textoSec, padding: "10px 12px", fontSize: 15, fontWeight: campeao ? 700 : 400, cursor: cartelaBloqueada ? "not-allowed" : "pointer" }}>
+              <option value="">Selecione o campeão...</option>
+              {TODOS_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </Card>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            <span style={{ color: C.textoSec, fontSize: 13, alignSelf: "center" }}>Fase:</span>
+            {fasesParaMostrar.map(g => <button key={g} onClick={() => setGrupoAtivo(g)} style={{ flexShrink: 0, background: grupoAtivo === g ? C.dourado : C.card, color: grupoAtivo === g ? "#000" : C.textoSec, border: `1px solid ${grupoAtivo === g ? C.dourado : C.cardBorder}`, borderRadius: 999, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{g.replace("Grupo ", "")}</button>)}
+          </div>
+          <div style={{ color: C.textoSec, fontSize: 12, fontWeight: 600, marginBottom: 10, letterSpacing: 1 }}>{grupoAtivo.toUpperCase()}</div>
+          {jogosPorGrupo(grupoAtivo).map(jogo => <JogoCard key={jogo.id} jogo={jogo} palpite={palpites[jogo.id]} onChange={handlePalpite} disabled={cartelaBloqueada || isJogoBloqueado(jogo)} />)}
+          <div style={{ marginTop: 16, marginBottom: 24 }}>
+            <div style={{ color: C.textoSec, fontSize: 13, marginBottom: 8, textAlign: "center" }}>{totalPalpitados} de {totalJogos} palpites preenchidos</div>
+            <Btn onClick={handleSalvar} cor={C.verde} style={{ width: "100%", fontSize: 16 }} disabled={totalPalpitados < 1 || cartelaBloqueada}>{isNew ? "✓ Criar Cartela" : "✓ Salvar Cartela"}</Btn>
+          </div>
+        </div>
+      </div>;
+    };
+
+    const TelaRanking = ({ cartelas, resultados, campeoReal, onVoltar, isAdmin, onSetAdmin, onValidarCartela, onShowInstrucoes, config }) => {
+      const [senhaInput, setSenhaInput] = useState("");
+      const [resultadosEdit, setResultadosEdit] = useState(resultados);
+      const [campeoRealEdit, setCampeoRealEdit] = useState(campeoReal || "");
+      const [jogoSelecionado, setJogoSelecionado] = useState("");
+      const [abaAdmin, setAbaAdmin] = useState("validar");
+      const [valorAposta, setValorAposta] = useState(config?.valor_aposta || 20);
+      const [apiUrl, setApiUrl] = useState(config?.api_url || "");
+      const [buscando, setBuscando] = useState(false);
+      const [msgBusca, setMsgBusca] = useState("");
+
+      const ranking = cartelas.filter(c => c.status === "validada").map(c => {
+        let pts = 0, total = 0, acertos = 0, placaresExatos = 0, diferencasCertas = 0;
+        for (const [k, v] of Object.entries(c.palpites || {})) {
+          if (k === "__campeo") continue;
+          total++; const r = resultadosEdit[k];
+          const { pts: pt, tipo } = calcularPontos(v, r); pts += pt;
+          if (tipo !== "errou" && tipo !== "pendente") acertos++;
+          if (tipo === "placar_exato") placaresExatos++;
+          if (tipo === "diferenca_certa") diferencasCertas++;
+        }
+        if (campeoRealEdit && c.campeao === campeoRealEdit) pts += pontosCampeaoPorFase(c.campeao_fase || "grupos");
+        return { ...c, pts, total, acertos, placaresExatos, diferencasCertas };
+      }).sort((a, b) => { if (b.pts !== a.pts) return b.pts - a.pts; if (b.placaresExatos !== a.placaresExatos) return b.placaresExatos - a.placaresExatos; return b.diferencasCertas - a.diferencasCertas; });
+
+      const medalhas = ["🥇", "🥈", "🥉"];
+      const primeiro = ranking[0] || null, segundo = ranking[1] || null, terceiro = ranking[2] || null;
+
+      const salvarResultado = (jogoId, ga, gb) => {
+        const atualizado = { ...resultadosEdit, [jogoId]: { placar_a: Number(ga), placar_b: Number(gb) } };
+        setResultadosEdit(atualizado); onSetAdmin(atualizado, campeoRealEdit);
+      };
+      const salvarConfig = async () => {
+        try { await supabaseClient.from("config").upsert({ id: 1, valor_aposta: Number(valorAposta), api_url: apiUrl }); alert("Configuração salva!"); }
+        catch (e) { try { localStorage.setItem("bolao_config", JSON.stringify({ valor_aposta: Number(valorAposta), api_url: apiUrl })); } catch (_) {} alert("Configuração salva (offline)"); }
+      };
+      const buscarResultados = async () => {
+        const url = apiUrl || "https://worldcupjson.net/matches"; setBuscando(true); setMsgBusca("Buscando resultados...");
+        try {
+          const res = await fetch(url); const data = await res.json(); const matches = Array.isArray(data) ? data : (data.matches || data.data || []);
+          const novos = { ...resultadosEdit }; let count = 0;
+          matches.forEach(m => {
+            const home = m.home_team || m.team1 || m.homeTeam || {}, away = m.away_team || m.team2 || m.awayTeam || {};
+            const homeName = home.name || home.country || "", awayName = away.name || away.country || "";
+            const homeGoals = m.home_score ?? m.goals_home ?? m.homeTeam?.goals ?? m.score?.fullTime?.home;
+            const awayGoals = m.away_score ?? m.goals_away ?? m.awayTeam?.goals ?? m.score?.fullTime?.away;
+            if (homeGoals === null || awayGoals === null) return;
+            JOGOS_TODOS.forEach(j => { if (j.time_a.toLowerCase().includes(homeName.toLowerCase()) && j.time_b.toLowerCase().includes(awayName.toLowerCase()) && (novos[j.id]?.placar_a !== homeGoals || novos[j.id]?.placar_b !== awayGoals)) { novos[j.id] = { placar_a: Number(homeGoals), placar_b: Number(awayGoals) }; count++; } });
+          });
+          setResultadosEdit(novos); onSetAdmin(novos, campeoRealEdit); setMsgBusca(count + " resultado(s) atualizado(s)!");
+        } catch (e) { setMsgBusca("Erro: " + e.message + ". Tente manualmente."); }
+        setBuscando(false);
+      };
+
+      return <div className="scroll-suave" style={{ minHeight: "100vh", background: C.bg, paddingBottom: 60 }}>
+        <div style={{ background: `linear-gradient(135deg, ${C.douradoEscuro}, ${C.dourado})`, padding: "16px 20px 14px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <button onClick={onVoltar} style={{ background: "rgba(0,0,0,0.25)", color: "#000", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>← Voltar</button>
+            <button onClick={onShowInstrucoes} style={{ background: "rgba(0,0,0,0.15)", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 18, cursor: "pointer" }}>❓</button>
+          </div>
+          <div style={{ color: "#000", fontSize: 22, fontWeight: 900 }}>🏅 Ranking do Bolão</div>
+          <div style={{ color: "rgba(0,0,0,0.6)", fontSize: 13 }}>{cartelas.length} cartelas</div>
+        </div>
+        <div style={{ padding: "14px 16px 0" }}>
+          <PainelFinanceiro totalParticipantes={cartelas.length} valorAposta={config?.valor_aposta || 20} />
+          {ranking.length > 0 && <div style={{ background: "linear-gradient(135deg, #1a1a2e, #16213e)", border: `1px solid ${C.cardBorder}`, borderRadius: 12, padding: 16, marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", gap: 12, padding: "8px 0" }}>
+              {segundo ? <div style={{ textAlign: "center", flex: 1 }}><div style={{ fontSize: 28 }}>🥈</div><div style={{ color: C.texto, fontSize: 13, fontWeight: 800, marginTop: 4 }}>{segundo.participante}</div><div style={{ color: C.dourado, fontSize: 18, fontWeight: 900 }}>{segundo.pts}</div><div style={{ color: C.textoSec, fontSize: 11 }}>pts</div></div> : <div style={{ flex: 1 }} />}
+              {primeiro ? <div style={{ textAlign: "center", flex: 1.3 }}><div style={{ fontSize: 36 }}>🥇</div><div style={{ color: C.texto, fontSize: 15, fontWeight: 800, marginTop: 4 }}>{primeiro.participante}</div><div style={{ color: C.dourado, fontSize: 22, fontWeight: 900 }}>{primeiro.pts}</div><div style={{ color: C.textoSec, fontSize: 11 }}>pts</div></div> : <div style={{ flex: 1.3 }} />}
+              {terceiro ? <div style={{ textAlign: "center", flex: 1 }}><div style={{ fontSize: 28 }}>🥉</div><div style={{ color: C.texto, fontSize: 13, fontWeight: 800, marginTop: 4 }}>{terceiro.participante}</div><div style={{ color: C.dourado, fontSize: 18, fontWeight: 900 }}>{terceiro.pts}</div><div style={{ color: C.textoSec, fontSize: 11 }}>pts</div></div> : <div style={{ flex: 1 }} />}
+            </div>
+          </div>}
+          {ranking.map((c, idx) => <div key={c.id} style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 12, padding: 16, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ color: idx < 3 ? C.dourado : C.textoSec, fontWeight: 900, fontSize: 18, width: 32, textAlign: "center" }}>{idx < 3 ? medalhas[idx] : `${idx + 1}º`}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: C.texto, fontWeight: 700, fontSize: 15 }}>{c.participante} <span style={{ color: C.textoSec, fontWeight: 400, fontSize: 12 }}>({c.nome || "Cartela"})</span></div>
+              <div style={{ color: C.textoSec, fontSize: 12, marginTop: 2 }}>{c.acertos}/{c.total} acertos · Campeão: {c.campeao || "—"} {c.campeao === campeoRealEdit && campeoRealEdit ? "✅ +" + pontosCampeaoPorFase(c.campeao_fase || "grupos") : ""}<span style={{ marginLeft: 6 }}><StatusBadge status={c.status} /></span></div>
+            </div>
+            <div style={{ textAlign: "right" }}><div style={{ color: C.dourado, fontWeight: 900, fontSize: 20 }}>{c.pts}</div><div style={{ color: C.textoSec, fontSize: 11 }}>pts</div></div>
+          </div>)}
+          {ranking.length === 0 && <div style={{ textAlign: "center", color: C.textoSec, padding: 40 }}>Nenhuma cartela ainda</div>}
+          <div style={{ marginTop: 20 }}>
+            {!isAdmin ? <Card><div style={{ color: C.textoSec, fontSize: 13, marginBottom: 8 }}>🔐 Área do Administrador</div>
+              <div style={{ display: "flex", gap: 8 }}><input type="password" placeholder="Senha admin" value={senhaInput} onChange={e => setSenhaInput(e.target.value)} style={{ flex: 1, background: "#1a2234", border: `1px solid ${C.cardBorder}`, borderRadius: 8, color: C.texto, padding: "8px 12px", fontSize: 14 }} />
+              <Btn onClick={() => { if (senhaInput === "perez2026") { onSetAdmin(resultadosEdit, campeoRealEdit, true); } else alert("Senha incorreta"); }} cor={C.vermelho}>Entrar</Btn></div></Card> : <div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                {["validar", "resultados", "config"].map(tab => <button key={tab} onClick={() => setAbaAdmin(tab)} style={{ flex: 1, padding: "10px", background: abaAdmin === tab ? C.vermelho : C.card, color: abaAdmin === tab ? "#fff" : C.textoSec, border: `1px solid ${abaAdmin === tab ? C.vermelho : C.cardBorder}`, borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{tab === "validar" ? "✅ Validar" : tab === "resultados" ? "⚽ Resultados" : "⚙️ Config"}</button>)}
+              </div>
+              {abaAdmin === "validar" && <Card style={{ border: `2px solid ${C.verde}44` }}>
+                <div style={{ color: C.verde, fontWeight: 800, fontSize: 14, marginBottom: 12 }}>✅ Validar Cartelas</div>
+                {cartelas.filter(c => c.status !== "validada").length === 0 && <div style={{ color: C.textoSec, fontSize: 13, textAlign: "center", padding: 12 }}>Todas as cartelas já estão validadas!</div>}
+                {cartelas.filter(c => c.status !== "validada").map(c => <div key={c.id} style={{ background: "#0d1b2a", borderRadius: 8, padding: 12, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ flex: 1 }}><div style={{ color: C.texto, fontWeight: 700, fontSize: 14 }}>{c.participante} — {c.nome || "Cartela"}</div><div style={{ color: C.textoSec, fontSize: 12 }}>{Object.keys(c.palpites || {}).filter(k => k !== "__campeo").length}/{JOGOS_GRUPOS.length} palpites · Campeão: {c.campeao || "—"} · <StatusBadge status={c.status} /></div></div>
+                  <div style={{ display: "flex", gap: 6 }}><Btn onClick={() => onValidarCartela(c.id, "validada")} cor={C.verde} style={{ padding: "6px 12px", fontSize: 12 }}>✅</Btn><Btn onClick={() => onValidarCartela(c.id, "rejeitada")} cor={C.vermelho} style={{ padding: "6px 12px", fontSize: 12 }}>❌</Btn></div>
+                </div>)}
+              </Card>}
+              {abaAdmin === "resultados" && <Card style={{ border: `2px solid ${C.vermelho}44` }}>
+                <div style={{ color: C.vermelho, fontWeight: 800, fontSize: 14, marginBottom: 12 }}>⚽ Resultados dos Jogos</div>
+                <div style={{ marginBottom: 12, display: "flex", gap: 8 }}><input value={apiUrl} onChange={e => setApiUrl(e.target.value)} placeholder="URL da API" style={{ flex: 1, background: "#1a2234", border: `1px solid ${C.cardBorder}`, borderRadius: 8, color: C.texto, padding: "8px 12px", fontSize: 13 }} /><Btn onClick={buscarResultados} cor={C.azul} disabled={buscando} style={{ padding: "8px 14px", fontSize: 12 }}>{buscando ? "⏳" : "🔍 Buscar"}</Btn></div>
+                {msgBusca && <div style={{ color: C.textoSec, fontSize: 12, marginBottom: 10 }}>{msgBusca}</div>}
+                <div style={{ marginBottom: 12 }}><div style={{ color: C.textoSec, fontSize: 13, marginBottom: 6 }}>Campeão real</div>
+                  <select value={campeoRealEdit} onChange={e => { setCampeoRealEdit(e.target.value); onSetAdmin(resultadosEdit, e.target.value, true); }} style={{ width: "100%", background: "#1a2234", border: `2px solid ${C.dourado}`, borderRadius: 8, color: C.dourado, padding: "8px 12px", fontSize: 14, fontWeight: 700 }}>
+                    <option value="">Ainda não definido</option>
+                    {TODOS_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <select value={jogoSelecionado} onChange={e => setJogoSelecionado(e.target.value)} style={{ width: "100%", background: "#1a2234", border: `1px solid ${C.cardBorder}`, borderRadius: 8, color: C.texto, padding: "8px 12px", fontSize: 13, marginBottom: 8 }}>
+                  <option value="">Selecione o jogo...</option>
+                  {JOGOS_TODOS.map(j => <option key={j.id} value={j.id}>{j.time_a} × {j.time_b} ({j.grupo}){resultadosEdit[j.id] ? ` ✓ ${resultadosEdit[j.id].placar_a}-${resultadosEdit[j.id].placar_b}` : ""}</option>)}
+                </select>
+                {jogoSelecionado && <FormResultadoAdmin jogo={JOGOS_GRUPOS.find(j => j.id === jogoSelecionado)} resultadoSalvo={resultadosEdit[jogoSelecionado]} onSalvar={salvarResultado} />}
+              </Card>}
+              {abaAdmin === "config" && <Card style={{ border: `2px solid ${C.azul}44` }}>
+                <div style={{ color: C.azulClaro, fontWeight: 800, fontSize: 14, marginBottom: 12 }}>⚙️ Configurações</div>
+                <div style={{ marginBottom: 14 }}><div style={{ color: C.textoSec, fontSize: 13, marginBottom: 6 }}>Valor da Aposta (R$)</div><input type="number" step="0.50" min="0" value={valorAposta} onChange={e => setValorAposta(e.target.value)} style={{ width: "100%", background: "#1a2234", border: `2px solid ${C.cardBorder}`, borderRadius: 8, color: C.dourado, padding: "10px 12px", fontSize: 18, fontWeight: 700 }} /></div>
+                <div style={{ marginBottom: 14 }}><div style={{ color: C.textoSec, fontSize: 13, marginBottom: 6 }}>URL da API de Resultados</div><input value={apiUrl} onChange={e => setApiUrl(e.target.value)} placeholder="https://worldcupjson.net/matches" style={{ width: "100%", background: "#1a2234", border: `2px solid ${C.cardBorder}`, borderRadius: 8, color: C.texto, padding: "10px 12px", fontSize: 14 }} /></div>
+                <Btn onClick={salvarConfig} cor={C.azul} style={{ width: "100%" }}>💾 Salvar Configuração</Btn>
+              </Card>}
+            </div>}
+          </div>
+        </div>
+      </div>;
+    };
+
+    const FormResultadoAdmin = ({ jogo, resultadoSalvo, onSalvar }) => {
+      const [ga, setGa] = useState(resultadoSalvo?.placar_a ?? ""); const [gb, setGb] = useState(resultadoSalvo?.placar_b ?? "");
+      useEffect(() => { setGa(resultadoSalvo?.placar_a ?? ""); setGb(resultadoSalvo?.placar_b ?? ""); }, [jogo?.id, resultadoSalvo]);
+      if (!jogo) return null;
+      return <div><div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ color: C.texto, flex: 1, textAlign: "right", fontWeight: 700 }}>{jogo.time_a}</span>
+        <input type="number" inputMode="numeric" pattern="[0-9]*" value={ga} onChange={e => setGa(e.target.value)} style={{ width: 52, textAlign: "center", background: "#1a2234", border: `2px solid ${C.cardBorder}`, borderRadius: 6, color: C.texto, padding: "6px 0", fontSize: 18, fontWeight: 800 }} />
+        <span style={{ color: C.textoSec }}>×</span>
+        <input type="number" inputMode="numeric" pattern="[0-9]*" value={gb} onChange={e => setGb(e.target.value)} style={{ width: 52, textAlign: "center", background: "#1a2234", border: `2px solid ${C.cardBorder}`, borderRadius: 6, color: C.texto, padding: "6px 0", fontSize: 18, fontWeight: 800 }} />
+        <span style={{ color: C.texto, flex: 1, fontWeight: 700 }}>{jogo.time_b}</span>
+      </div>
+      <Btn onClick={() => { if (ga !== "" && gb !== "") onSalvar(jogo.id, ga, gb); }} cor={C.verde} style={{ width: "100%" }}>✓ Salvar</Btn></div>;
+    };
+
+    const ModalDownload = ({ cartela, participante, onFechar }) => {
+      if (!cartela) return null;
+      return <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: 32, maxWidth: 400, width: "100%", textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
+          <div style={{ color: C.dourado, fontWeight: 900, fontSize: 18, marginBottom: 8 }}>Baixar Cartela</div>
+          <div style={{ color: C.textoSec, fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>Será baixado um arquivo <strong>.html</strong> com sua cartela. Abra o arquivo e use <strong>Ctrl+P</strong> para imprimir ou salvar como PDF.</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn onClick={() => { baixarCartelaHTML(cartela, participante); onFechar(); }} cor={C.azul} style={{ flex: 1 }}>⬇️ Baixar Cartela</Btn>
+            <button onClick={onFechar} style={{ background: "transparent", border: `1px solid ${C.cardBorder}`, borderRadius: 8, padding: "10px 16px", color: C.textoSec, fontSize: 14, cursor: "pointer" }}>Cancelar</button>
+          </div>
+        </div>
+      </div>;
+    };
+
+    function App() {
+      const [tela, setTela] = useState("cadastro");
+      const [participante, setParticipante] = useState("");
+      const [cartelas, setCartelas] = useState([]);
+      const [resultados, setResultados] = useState({});
+      const [campeoReal, setCampeoReal] = useState("");
+      const [isAdmin, setIsAdmin] = useState(false);
+      const [showInstrucoes, setShowInstrucoes] = useState(false);
+      const [loading, setLoading] = useState(true);
+      const [cartelaEditando, setCartelaEditando] = useState(null);
+      const [config, setConfig] = useState({ valor_aposta: 20, api_url: "" });
+      const [cartelaDownload, setCartelaDownload] = useState(null);
+
+      useEffect(() => {
+        const seen = localStorage.getItem("bolao_instrucoes_visto");
+        if (!seen) { setShowInstrucoes(true); localStorage.setItem("bolao_instrucoes_visto", "true"); }
+        (async () => {
+          try { const data = await supabaseClient.from("cartelas").select(null, { order: "created_at", dir: "desc" }); if (Array.isArray(data)) setCartelas(data); } catch (e) { try { const r = localStorage.getItem("bolao_cartelas"); if (r) setCartelas(JSON.parse(r)); } catch (_) {} }
+          try { const adminData = await supabaseClient.from("admin").select({ id: 1 }); if (Array.isArray(adminData) && adminData.length > 0) { setResultados(adminData[0].resultados || {}); setCampeoReal(adminData[0].campeo_real || ""); } } catch (e) { try { const r = localStorage.getItem(STORAGE_KEY_ADMIN); if (r) { const d = JSON.parse(r); setResultados(d.resultados || {}); setCampeoReal(d.campeoReal || ""); } } catch (_) {} }
+          try { const cfgData = await supabaseClient.from("config").select({ id: 1 }); if (Array.isArray(cfgData) && cfgData.length > 0) setConfig({ valor_aposta: cfgData[0].valor_aposta || 20, api_url: cfgData[0].api_url || "" }); } catch (e) { try { const r = localStorage.getItem("bolao_config"); if (r) setConfig(JSON.parse(r)); } catch (_) {} }
+          setLoading(false);
+        })();
+      }, []);
+
+      const entrar = async (nome, senha, isCadastro) => {
+        setIsAdmin(false); let encontrado = false;
+        try { const data = await supabaseClient.from("jogadores").select({ nome }); if (Array.isArray(data) && data.length > 0) { encontrado = true; if (data[0].senha !== senha) throw new Error("Senha incorreta!"); } } catch (e) { if (e.message === "Senha incorreta!") throw e; const r = localStorage.getItem(STORAGE_KEY_JOGADORES); const j = r ? JSON.parse(r) : {}; if (j[nome]) { encontrado = true; if (j[nome] !== senha) throw new Error("Senha incorreta!"); } }
+        if (encontrado && !isCadastro) { setParticipante(nome); setTela("minhas_cartelas"); return; }
+        if (encontrado && isCadastro) throw new Error("Usuário já existe!");
+        if (!encontrado && !isCadastro) throw new Error("Usuário não encontrado. Clique em 'Cadastrar'.");
+        try { await supabaseClient.from("jogadores").upsert({ nome, senha }); } catch (_) { try { const r = localStorage.getItem(STORAGE_KEY_JOGADORES); const j = r ? JSON.parse(r) : {}; j[nome] = senha; localStorage.setItem(STORAGE_KEY_JOGADORES, JSON.stringify(j)); } catch (_) {} }
+        setParticipante(nome); setTela("minhas_cartelas");
+      };
+
+      const salvarCartela = async (cartela) => {
+        const nova = { ...cartela }; const isNew = !nova.id;
+        if (!nova.campeao_fase && nova.campeao) nova.campeao_fase = getFaseAtual(resultados);
+        if (isNew) { nova.id = "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8); nova.participante = participante; nova.status = "aguardando"; nova.created_at = new Date().toISOString(); setCartelas(prev => [nova, ...prev]); }
+        else { nova.updated_at = new Date().toISOString(); setCartelas(prev => prev.map(c => c.id === nova.id ? nova : c)); }
+        try { await supabaseClient.from("cartelas").upsert({ id: nova.id, participante: nova.participante, nome: nova.nome || "Cartela", palpites: nova.palpites, campeao: nova.campeao || "", campeao_fase: nova.campeao_fase || "grupos", status: nova.status, valor_pago: config.valor_aposta || 20, updated_at: new Date().toISOString() }); } catch (e) { try { localStorage.setItem("bolao_cartelas", JSON.stringify(isNew ? [{ ...nova }, ...cartelas] : cartelas.map(c => c.id === nova.id ? nova : c))); } catch (_) {} }
+        setTela("minhas_cartelas");
+      };
+
+      const sair = () => { setParticipante(""); setIsAdmin(false); setCartelaEditando(null); setCartelas([]); setResultados({}); setCampeoReal(""); setConfig({ valor_aposta: 20, api_url: "" }); setTela("cadastro"); try { localStorage.removeItem("bolao_admin"); } catch (_) {} try { localStorage.removeItem("bolao_isAdmin"); } catch (_) {} };
+      const excluirConta = async () => {
+        if (!confirm("Tem certeza? Todas as suas cartelas serão excluídas!")) return;
+        const senhaConfirm = prompt("Digite sua senha de 6 dígitos para confirmar:");
+        if (!senhaConfirm || senhaConfirm.length !== 6) return;
+        try { const data = await supabaseClient.from("jogadores").select({ nome: participante }); if (Array.isArray(data) && data.length > 0 && data[0].senha !== senhaConfirm) { alert("Senha incorreta!"); return; } } catch (_) { const r = localStorage.getItem(STORAGE_KEY_JOGADORES); const j = r ? JSON.parse(r) : {}; if (j[participante] && j[participante] !== senhaConfirm) { alert("Senha incorreta!"); return; } }
+        setCartelas(prev => prev.filter(c => c.participante !== participante));
+        try { await supabaseClient.from("jogadores").delete({ nome: participante }); } catch (_) {}
+        const ids = cartelas.filter(c => c.participante === participante).map(c => c.id);
+        for (const id of ids) { try { await supabaseClient.from("cartelas").delete({ id }); } catch (_) {} }
+        try { const r = localStorage.getItem(STORAGE_KEY_JOGADORES); const j = r ? JSON.parse(r) : {}; delete j[participante]; localStorage.setItem(STORAGE_KEY_JOGADORES, JSON.stringify(j)); } catch (_) {}
+        setParticipante(""); setIsAdmin(false); setTela("cadastro");
+      };
+      const excluirCartela = async (cartelaId) => { if (!confirm("Tem certeza que deseja excluir esta cartela?")) return; setCartelas(prev => prev.filter(c => c.id !== cartelaId)); try { await supabaseClient.from("cartelas").delete({ id: cartelaId }); } catch (e) { try { localStorage.setItem("bolao_cartelas", JSON.stringify(cartelas.filter(c => c.id !== cartelaId))); } catch (_) {} } };
+      const validarCartela = async (cartelaId, status) => { setCartelas(prev => prev.map(c => c.id === cartelaId ? { ...c, status } : c)); try { await supabaseClient.from("cartelas").upsert({ id: cartelaId, status, updated_at: new Date().toISOString() }); } catch (e) { try { localStorage.setItem("bolao_cartelas", JSON.stringify(cartelas.map(c => c.id === cartelaId ? { ...c, status } : c))); } catch (_) {} } };
+      const refreshCartelas = async () => { try { const data = await supabaseClient.from("cartelas").select(null, { order: "created_at", dir: "desc" }); if (Array.isArray(data)) setCartelas(data); } catch (_) {} };
+      const salvarAdmin = async (novosResultados, novoCampeo, setAdminFlag = false) => { setResultados(novosResultados); setCampeoReal(novoCampeo); if (setAdminFlag) { setIsAdmin(true); refreshCartelas(); } try { await supabaseClient.from("admin").upsert({ id: 1, resultados: novosResultados, campeo_real: novoCampeo, updated_at: new Date().toISOString() }); } catch (e) { try { localStorage.setItem(STORAGE_KEY_ADMIN, JSON.stringify({ resultados: novosResultados, campeoReal: novoCampeo })); } catch (_) {} } };
+
+      const styles = { fontFamily: "'Segoe UI', system-ui, sans-serif", background: C.bg, minHeight: "100vh", color: C.texto, maxWidth: 480, margin: "0 auto" };
+      if (loading) return <div style={{ ...styles, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ color: C.dourado, fontSize: 18, fontWeight: 700 }}>🏆 Carregando...</div></div>;
+
+      const renderTela = () => {
+        switch (tela) {
+          case "cadastro": return <TelaCadastro onEntrar={entrar} onShowInstrucoes={() => setShowInstrucoes(true)} />;
+          case "minhas_cartelas": return <TelaMinhasCartelas participante={participante} cartelas={cartelas} config={config}
+            onNovaCartela={() => { setCartelaEditando(null); setTela("preencher_cartela"); }}
+            onVerCartela={(c) => { setCartelaEditando(c); setTela("preencher_cartela"); }}
+            onVerRanking={() => setTela("ranking")}
+            onExcluirCartela={excluirCartela}
+            onDownloadCartela={(c) => { setCartelaDownload(c); }}
+            onSair={sair}
+            onExcluirConta={excluirConta}
+            onShowInstrucoes={() => setShowInstrucoes(true)} />;
+          case "preencher_cartela": return <TelaPreencherCartela cartela={cartelaEditando} config={config} resultados={resultados}
+            onSalvar={salvarCartela}
+            onVoltar={() => setTela("minhas_cartelas")} />;
+          case "ranking": return <TelaRanking cartelas={cartelas} resultados={resultados} campeoReal={campeoReal} config={config}
+            onVoltar={() => setTela(participante ? "minhas_cartelas" : "cadastro")}
+            isAdmin={isAdmin} onSetAdmin={salvarAdmin}
+            onValidarCartela={validarCartela}
+            onShowInstrucoes={() => setShowInstrucoes(true)} />;
+          default: return <TelaCadastro onEntrar={entrar} onShowInstrucoes={() => setShowInstrucoes(true)} />;
+        }
+      };
+
+      return <div style={styles}>
+        {renderTela()}
+        {showInstrucoes && <ModalInstrucoes onFechar={() => setShowInstrucoes(false)} />}
+        {cartelaDownload && <ModalDownload cartela={cartelaDownload} participante={participante} onFechar={() => setCartelaDownload(null)} />}
+      </div>;
+    }
+
+    createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

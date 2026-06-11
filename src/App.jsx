@@ -1,0 +1,216 @@
+import React, { useState, useEffect, useCallback } from "react";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "./contexts/AuthContext";
+import { useCartelas } from "./hooks/useCartelas";
+import { useRanking } from "./hooks/useRanking";
+import { salvarAdminData } from "./services/admin";
+import { getFaseAtual } from "./utils/pontuacao";
+import { deletarCartela } from "./services/cartelas";
+import { deletarJogador } from "./services/jogadores";
+import Login from "./pages/Login";
+import MinhasCartelas from "./pages/MinhasCartelas";
+import PreencherCartela from "./pages/PreencherCartela";
+import RankingPage from "./pages/Ranking";
+import { ModalInstrucoes } from "./components/ModalInstrucoes";
+import { PrintArea } from "./components/PrintArea";
+import { OfflineBanner } from "./components/OfflineBanner";
+
+export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, jogador, isAdmin, signOut, refreshJogador, refreshUser } = useAuth();
+  const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas();
+  const { resultados, campeoReal, config, updateResultados, loadData } = useRanking();
+
+  const [cartelaEditando, setCartelaEditando] = useState(null);
+  const [cartelaPrint, setCartelaPrint] = useState(null);
+  const [showInstrucoes, setShowInstrucoes] = useState(false);
+
+  useEffect(() => {
+    const seen = localStorage.getItem("bolao_instrucoes_visto");
+    if (!seen && !user) {
+      setShowInstrucoes(true);
+      localStorage.setItem("bolao_instrucoes_visto", "true");
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (location.pathname === "/") {
+      if (user) {
+        navigate("/minhas-cartelas", { replace: true });
+      } else {
+        navigate("/login", { replace: true });
+      }
+    }
+  }, [user, location.pathname, navigate]);
+
+  const handleLogin = useCallback(
+    async ({ isAdmin: adminFlag }) => {
+      refreshUser();
+      if (adminFlag) {
+        navigate("/ranking", { replace: true });
+      } else {
+        navigate("/minhas-cartelas", { replace: true });
+      }
+    },
+    [navigate, refreshUser]
+  );
+
+  const handleSair = useCallback(async () => {
+    await signOut();
+    navigate("/login", { replace: true });
+  }, [signOut, navigate]);
+
+  const handleExcluirConta = useCallback(async () => {
+    const confirm = window.confirm("Tem certeza que deseja excluir sua conta? Todos os seus dados serão perdidos.");
+    if (!confirm) return;
+    const minhasCartelas = cartelas.filter((c) => c.participante === jogador?.nome);
+    for (const c of minhasCartelas) {
+      try { await deletarCartela(c.id); } catch {}
+    }
+    try {
+      await deletarJogador(user?.nome);
+    } catch {}
+    await signOut();
+    navigate("/login", { replace: true });
+  }, [user, jogador, cartelas, signOut, navigate]);
+
+  const handleSalvarCartela = useCallback(
+    async (cartela) => {
+      const nova = { ...cartela };
+      if (!nova.campeao_fase && nova.campeao) {
+        nova.campeao_fase = getFaseAtual(resultados);
+      }
+      await salvarCartelaHook(nova);
+      navigate("/minhas-cartelas", { replace: true });
+    },
+    [resultados, salvarCartelaHook, navigate]
+  );
+
+  const handleValidarCartela = useCallback(
+    async (cartelaId, status) => {
+      await validar(cartelaId, status);
+    },
+    [validar]
+  );
+
+  const handleResultadosChange = useCallback(
+    (novosResultados, novoCampeo) => {
+      updateResultados(novosResultados, novoCampeo);
+      salvarAdminData(novosResultados, novoCampeo).catch(() => {});
+    },
+    [updateResultados]
+  );
+
+  const handlePrintCartela = useCallback((cartela) => {
+    setCartelaPrint(cartela);
+  }, []);
+
+  const handleImportarCartela = useCallback(
+    async (file) => {
+      try {
+        const text = await file.text();
+        const { parseCartelaHTML } = await import("./services/importarCartela");
+        const dados = parseCartelaHTML(text);
+        if (Object.keys(dados.palpites).length === 0) {
+          alert("Nenhum palpite encontrado no arquivo.");
+          return;
+        }
+        await salvarCartelaHook({
+          id: "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+          nome: "Importada",
+          palpites: dados.palpites,
+          campeao: dados.campeao || "",
+          campeao_fase: dados.campeao_fase || "grupos",
+          participante: dados.participante || jogador?.nome || user?.nome,
+        });
+        alert("Cartela importada com " + Object.keys(dados.palpites).length + " palpites!");
+      } catch (e) {
+        alert("Erro ao importar: " + e.message);
+      }
+    },
+    [salvarCartelaHook, jogador, user]
+  );
+
+  const handlePrintDone = useCallback(() => {
+    setCartelaPrint(null);
+  }, []);
+
+  const atualCartelas = cartelas;
+
+  return (
+    <>
+      <OfflineBanner />
+      <Routes>
+        <Route path="/login" element={<Login onLogin={handleLogin} />} />
+        <Route
+          path="/minhas-cartelas"
+          element={
+            user ? (
+              <MinhasCartelas
+                cartelas={atualCartelas}
+                config={config}
+                resultados={resultados}
+                onNovaCartela={() => {
+                  setCartelaEditando(null);
+                  navigate("/preencher-cartela");
+                }}
+                onVerCartela={(c) => {
+                  setCartelaEditando(c);
+                  navigate("/preencher-cartela");
+                }}
+                onVerRanking={() => navigate("/ranking")}
+                onExcluirCartela={deletar}
+                onPrintCartela={handlePrintCartela}
+                  onSair={handleSair}
+                  onExcluirConta={handleExcluirConta}
+                  onShowInstrucoes={() => setShowInstrucoes(true)}
+                  onImportarCartela={handleImportarCartela}
+              />
+            ) : (
+              <Login onLogin={handleLogin} />
+            )
+          }
+        />
+        <Route
+          path="/preencher-cartela"
+          element={
+            user ? (
+              <PreencherCartela
+                cartela={cartelaEditando}
+                resultados={resultados}
+                config={config}
+                onSalvar={handleSalvarCartela}
+                onVoltar={() => navigate("/minhas-cartelas")}
+                onPrintCartela={handlePrintCartela}
+              />
+            ) : (
+              <Login onLogin={handleLogin} />
+            )
+          }
+        />
+        <Route
+          path="/ranking"
+          element={
+            <RankingPage
+              cartelas={atualCartelas}
+              resultados={resultados}
+              campeoReal={campeoReal}
+              isAdmin={isAdmin}
+              config={config}
+              onVoltar={() => navigate(user ? "/minhas-cartelas" : "/login")}
+              onValidarCartela={handleValidarCartela}
+              onResultadosChange={handleResultadosChange}
+              onShowInstrucoes={() => setShowInstrucoes(true)}
+            />
+          }
+        />
+        <Route path="*" element={<Login onLogin={handleLogin} />} />
+      </Routes>
+      {showInstrucoes && (
+        <ModalInstrucoes onFechar={() => setShowInstrucoes(false)} />
+      )}
+      <PrintArea cartela={cartelaPrint} participante={jogador?.nome || ""} onDone={handlePrintDone} />
+    </>
+  );
+}
