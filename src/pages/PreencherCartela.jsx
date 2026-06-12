@@ -8,9 +8,11 @@ import {
   JOGOS_QUARTAS,
   JOGOS_SEMI,
   JOGOS_FINAL,
+  JOGOS_TODOS,
   TODOS_TIMES,
 } from "../services/jogos";
 import { getFaseAtual, pontosCampeaoPorFase } from "../utils/pontuacao";
+import { isJogoBloqueado } from "../utils/datas";
 
 export default function PreencherCartela({ cartela, resultados, config, onSalvar, onVoltar, onPrintCartela }) {
   const [palpites, setPalpites] = useState(cartela?.palpites || {});
@@ -25,7 +27,6 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
     "Oitavas","Quartas","Semi","Final",
   ];
 
-  const cartelaBloqueada = cartela?.status === "validada";
   const isNew = !cartela?.id;
   const valorAposta = config?.valor_aposta || 20;
   const pontosCampeao = pontosCampeaoPorFase(faseAtual);
@@ -35,9 +36,17 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
   };
 
   const handleSalvar = () => {
+    const palpitesFiltrados = { ...(cartela?.palpites || {}) };
+    for (const [jogoId, valor] of Object.entries(palpites)) {
+      const jogo = JOGOS_TODOS.find((j) => j.id === jogoId);
+      if (!jogo || !isJogoBloqueado(jogo)) {
+        palpitesFiltrados[jogoId] = valor;
+      }
+    }
+
     onSalvar({
       ...cartela,
-      palpites,
+      palpites: palpitesFiltrados,
       campeao,
       campeao_fase: cartela?.campeao_fase || (campeao ? faseAtual : undefined),
     });
@@ -122,11 +131,12 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
       </div>
 
       <div style={{ padding: "14px 16px 0" }}>
-        {cartelaBloqueada && (
+        {cartela?.status === "validada" && (
           <div
             style={{
-              background: "#C8102E",
-              color: "#fff",
+              background: "#0d3320",
+              border: "1px solid #16a34a44",
+              color: "#4ade80",
               padding: "10px 14px",
               borderRadius: 8,
               marginBottom: 14,
@@ -135,7 +145,25 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
               textAlign: "center",
             }}
           >
-            {"\uD83D\uDD12"} Esta cartela foi validada e está bloqueada.
+            {"\u2705"} Cartela validada — pagamento confirmado.
+            Você ainda pode editar palpites de jogos não iniciados.
+          </div>
+        )}
+        {cartela?.status === "aguardando" && !isNew && (
+          <div
+            style={{
+              background: "#1a1a00",
+              border: "1px solid #FFD70044",
+              color: "#FFD700",
+              padding: "10px 14px",
+              borderRadius: 8,
+              marginBottom: 14,
+              fontSize: 12,
+              fontWeight: 700,
+              textAlign: "center",
+            }}
+          >
+            {"\u23F3"} Aguardando validação do pagamento pelo administrador.
           </div>
         )}
 
@@ -146,7 +174,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
           <select
             value={campeao}
             onChange={(e) => setCampeao(e.target.value)}
-            disabled={cartelaBloqueada}
+            disabled={false}
             style={{
               width: "100%",
               background: "#1a2234",
@@ -156,7 +184,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
               padding: "10px 12px",
               fontSize: 15,
               fontWeight: campeao ? 700 : 400,
-              cursor: cartelaBloqueada ? "not-allowed" : "pointer",
+              cursor: "pointer",
             }}
           >
             <option value="">Selecione o campeão...</option>
@@ -208,9 +236,9 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
             key={jogo.id}
             jogo={jogo}
             palpite={palpites[jogo.id]}
-            resultado={cartelaBloqueada ? resultados?.[jogo.id] : undefined}
+            resultado={resultados?.[jogo.id]}
             onChange={handlePalpite}
-            disabled={cartelaBloqueada}
+            disabled={false}
           />
         ))}
 
@@ -229,7 +257,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
             onClick={handleSalvar}
             cor="#16a34a"
             style={{ width: "100%", fontSize: 16 }}
-            disabled={cartelaBloqueada}
+            disabled={false}
           >
             {isNew ? "Criar Cartela" : "Salvar Cartela"}
           </Btn>
