@@ -67,7 +67,7 @@ export function AdminPanel({
   );
 
   const handleBuscarResultados = useCallback(async () => {
-    const url = apiUrl || "https://worldcupjson.net/matches";
+    const url = apiUrl || "https://worldcup26.ir/get/games";
     setBuscando(true);
     setMsgBusca("Buscando resultados...");
     try {
@@ -214,7 +214,7 @@ export function AdminPanel({
             <input
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="URL da API (ex: https://worldcupjson.net/matches)"
+              placeholder="URL da API (ex: https://worldcup26.ir/get/games)"
               style={{
                 flex: 1,
                 background: "#1a2234",
@@ -438,7 +438,7 @@ export function AdminPanel({
             <input
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="https://worldcupjson.net/matches"
+              placeholder="https://worldcup26.ir/get/games"
               style={{
                 width: "100%",
                 background: "#1a2234",
