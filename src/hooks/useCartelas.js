@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { listCartelas, salvarCartela, deletarCartela, validarCartela } from "../services/cartelas";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -6,35 +6,49 @@ export function useCartelas() {
   const { user, jogador } = useAuth();
   const [cartelas, setCartelas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const mounted = useRef(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const data = await listCartelas();
-      if (mounted.current) setCartelas(data || []);
+      setCartelas(data || []);
     } catch {
-      if (mounted.current) setCartelas([]);
+      setCartelas([]);
     }
-    if (mounted.current) setLoading(false);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    if (user) {
-      refresh();
-      const id = setInterval(refresh, 30000);
-      return () => { mounted.current = false; clearInterval(id); };
-    } else {
+    if (!user) {
       setCartelas([]);
       setLoading(false);
+      return;
     }
-  }, [user, refresh]);
+
+    let ativo = true;
+
+    async function carregar() {
+      setLoading(true);
+      try {
+        const data = await listCartelas();
+        if (ativo) setCartelas(data || []);
+      } catch {
+        if (ativo) setCartelas([]);
+      }
+      if (ativo) setLoading(false);
+    }
+
+    carregar();
+    const id = setInterval(carregar, 30000);
+    return () => {
+      ativo = false;
+      clearInterval(id);
+    };
+  }, [user]);
 
   const salvar = async (cartela) => {
     const nova = { ...cartela };
-    if (!nova.id) {
-      nova.id = "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
-    }
+    if (!nova.id) nova.id = "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
     nova.participante = jogador?.nome || user?.nome || nova.participante;
     if (!nova.status) nova.status = "aguardando";
     if (!nova.created_at) nova.created_at = new Date().toISOString();

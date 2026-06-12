@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getAdminData, getConfig, salvarAdminData } from "../services/admin";
 import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
 
@@ -7,15 +7,13 @@ export function useRanking() {
   const [campeoReal, setCampeoReal] = useState("");
   const [config, setConfigLocal] = useState({ valor_aposta: 20, api_url: "" });
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
-  const mounted = useRef(true);
 
   const loadData = useCallback(async () => {
     const admin = await getAdminData();
-    if (!mounted.current) return;
     setResultados(admin.resultados);
     setCampeoReal(admin.campeoReal);
     const cfg = await getConfig();
-    if (mounted.current) setConfigLocal(cfg);
+    setConfigLocal(cfg);
   }, []);
 
   const autoFetchResultados = useCallback(async (url) => {
@@ -34,10 +32,21 @@ export function useRanking() {
   }, [resultados, campeoReal]);
 
   useEffect(() => {
-    loadData();
-    const id = setInterval(loadData, 30000);
-    return () => { mounted.current = false; clearInterval(id); };
-  }, [loadData]);
+    let ativo = true;
+
+    async function carregar() {
+      const admin = await getAdminData();
+      if (!ativo) return;
+      setResultados(admin.resultados);
+      setCampeoReal(admin.campeoReal);
+      const cfg = await getConfig();
+      if (ativo) setConfigLocal(cfg);
+    }
+
+    carregar();
+    const id = setInterval(carregar, 30000);
+    return () => { ativo = false; clearInterval(id); };
+  }, []);
 
   useEffect(() => {
     if (!config.api_url) return;
