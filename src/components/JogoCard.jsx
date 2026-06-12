@@ -1,8 +1,40 @@
 import React, { useState, useEffect } from "react";
 import { Flag } from "./Flag";
 import { isJogoBloqueado } from "../utils/datas";
+import { calcularPontos } from "../utils/pontuacao";
 
-export function JogoCard({ jogo, palpite, onChange, disabled }) {
+const FRASES_FEEDBACK = {
+  placar_exato: {
+    emoji: "🎯",
+    cor: "#FFD700",
+    borda: "#FFD700",
+    fundo: "#1a1500",
+    frase: (pts) => `Placar exato! Você fez ${pts} pontos — incrível! 🏆`,
+  },
+  diferenca_certa: {
+    emoji: "⚽",
+    cor: "#22c55e",
+    borda: "#22c55e44",
+    fundo: "#0d1f12",
+    frase: (pts) => `Diferença certa! ${pts} pontos para você — muito bem! 👏`,
+  },
+  vencedor_certo: {
+    emoji: "✅",
+    cor: "#3b82f6",
+    borda: "#3b82f644",
+    fundo: "#0d1220",
+    frase: (pts) => `Vencedor certo! Você garantiu ${pts} pontos. Continue assim! 💪`,
+  },
+  errou: {
+    emoji: "😬",
+    cor: "#C8102E",
+    borda: "#C8102E44",
+    fundo: "#1a0d0d",
+    frase: () => `Que pena, neste jogo não deu. Boa sorte nos próximos! 🍀`,
+  },
+};
+
+export function JogoCard({ jogo, palpite, resultado, onChange, disabled }) {
   const [ga, setGa] = useState(palpite?.gols_a ?? "");
   const [gb, setGb] = useState(palpite?.gols_b ?? "");
 
@@ -22,6 +54,10 @@ export function JogoCard({ jogo, palpite, onChange, disabled }) {
 
   const salvo = palpite?.gols_a !== undefined;
   const bloqueado = disabled || isJogoBloqueado(jogo);
+
+  const feedback = (palpite?.gols_a !== undefined && resultado)
+    ? calcularPontos(palpite, resultado)
+    : null;
 
   const badge = (txt, bg) => (
     <span
@@ -112,6 +148,62 @@ export function JogoCard({ jogo, palpite, onChange, disabled }) {
           <div style={{ color: "#F0F4FF", fontSize: 13, fontWeight: 700, marginTop: 4 }}>{jogo.time_b}</div>
         </div>
       </div>
+
+      {feedback && feedback.tipo !== "pendente" && (() => {
+        const f = FRASES_FEEDBACK[feedback.tipo];
+        if (!f) return null;
+        return (
+          <div
+            style={{
+              marginTop: 12,
+              padding: "8px 12px",
+              borderRadius: 8,
+              background: f.fundo,
+              border: `1px solid ${f.borda}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 18 }}>{f.emoji}</span>
+            <div style={{ flex: 1 }}>
+              <span style={{ color: f.cor, fontSize: 12, fontWeight: 700 }}>
+                {f.frase(feedback.pts)}
+              </span>
+            </div>
+            <div
+              style={{
+                background: f.cor,
+                color: f.cor === "#FFD700" ? "#000" : "#fff",
+                borderRadius: 999,
+                padding: "2px 10px",
+                fontSize: 13,
+                fontWeight: 900,
+                minWidth: 36,
+                textAlign: "center",
+                flexShrink: 0,
+              }}
+            >
+              {feedback.pts}pts
+            </div>
+          </div>
+        );
+      })()}
+
+      {resultado && resultado.placar_a !== undefined && (
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: 6,
+            color: "#8B9CC8",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: 0.5,
+          }}
+        >
+          Resultado: {resultado.placar_a} × {resultado.placar_b}
+        </div>
+      )}
     </div>
   );
 }

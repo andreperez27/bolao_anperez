@@ -33,13 +33,11 @@ export function AdminPanel({
   useEffect(() => { setResultadosEdit(resultados || {}); }, [resultados]);
   useEffect(() => { setCampeoRealEdit(campeoReal || ""); }, [campeoReal]);
   useEffect(() => {
-    import("../services/admin").then((mod) =>
-      mod.getConfig().then((cfg) => {
-        setValorAposta(cfg.valor_aposta);
-        setApiUrl(cfg.api_url);
-        setBonusGeral(cfg.bonus_geral || 0);
-      })
-    );
+    getConfig().then((cfg) => {
+      setValorAposta(cfg.valor_aposta);
+      setApiUrl(cfg.api_url);
+      setBonusGeral(cfg.bonus_geral || 0);
+    }).catch(() => {});
   }, []);
 
   const carregarParticipantes = useCallback(async () => {

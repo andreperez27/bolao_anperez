@@ -4,6 +4,7 @@ import { Btn } from "../components/Btn";
 import { StatusBadge } from "../components/StatusBadge";
 import { PainelFinanceiro } from "../components/PainelFinanceiro";
 import { AdminPanel } from "../components/AdminPanel";
+import { LegendaDesempate } from "../components/LegendaDesempate";
 import { calcularPontos, pontosCampeaoPorFase } from "../utils/pontuacao";
 
 export default function Ranking({
@@ -27,6 +28,8 @@ export default function Ranking({
       let acertos = 0;
       let placaresExatos = 0;
       let diferencasCertas = 0;
+      let vencedoresCertos = 0;
+      let empatesPalpitados = 0;
       for (const [k, v] of Object.entries(c.palpites || {})) {
         if (k === "__campeo") continue;
         total++;
@@ -34,8 +37,10 @@ export default function Ranking({
         const { pts: pt, tipo } = calcularPontos(v, r);
         pts += pt;
         if (tipo !== "errou" && tipo !== "pendente") acertos++;
-        if (tipo === "placar_exato") placaresExatos++;
+        if (tipo === "placar_exato")    placaresExatos++;
         if (tipo === "diferenca_certa") diferencasCertas++;
+        if (tipo === "vencedor_certo")  vencedoresCertos++;
+        if (v?.gols_a !== undefined && v.gols_a === v.gols_b) empatesPalpitados++;
       }
       if (campeoReal && c.campeao === campeoReal) {
         pts += pontosCampeaoPorFase(c.campeao_fase || "grupos");
@@ -43,14 +48,22 @@ export default function Ranking({
       pts += Number(config?.bonus_geral) || 0;
       const existente = acc[c.participante];
       if (!existente || pts > existente.pts) {
-        acc[c.participante] = { ...c, pts, total, acertos, placaresExatos, diferencasCertas };
+        acc[c.participante] = {
+          ...c, pts, total, acertos,
+          placaresExatos, diferencasCertas,
+          vencedoresCertos, empatesPalpitados,
+        };
       }
       return acc;
     }, {})
   ).sort((a, b) => {
-    if (b.pts !== a.pts) return b.pts - a.pts;
-    if (b.placaresExatos !== a.placaresExatos) return b.placaresExatos - a.placaresExatos;
-    return b.diferencasCertas - a.diferencasCertas;
+    if (b.pts !== a.pts)                           return b.pts - a.pts;
+    if (b.placaresExatos !== a.placaresExatos)     return b.placaresExatos - a.placaresExatos;
+    if (b.diferencasCertas !== a.diferencasCertas) return b.diferencasCertas - a.diferencasCertas;
+    if (b.vencedoresCertos !== a.vencedoresCertos) return b.vencedoresCertos - a.vencedoresCertos;
+    if (a.empatesPalpitados !== b.empatesPalpitados) return a.empatesPalpitados - b.empatesPalpitados;
+    if (b.acertos !== a.acertos)                   return b.acertos - a.acertos;
+    return (a.participante || "").localeCompare(b.participante || "", "pt-BR");
   });
 
   const primeiro = ranking[0] || null;
@@ -181,6 +194,8 @@ export default function Ranking({
           </div>
         )}
 
+        <LegendaDesempate />
+
         {ranking.map((c, idx) => (
           <div
             key={c.id}
@@ -214,7 +229,18 @@ export default function Ranking({
                 </span>
               </div>
               <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>
-                {c.acertos}/{c.total} acertos {"·"} Campeão: {c.campeao || "—"}{" "}
+                {c.acertos}/{c.total} acertos{" "}
+                {c.placaresExatos > 0 && (
+                  <span style={{ color: "#FFD700", fontWeight: 700 }}>
+                    · 🎯 {c.placaresExatos} exatos
+                  </span>
+                )}
+                {c.empatesPalpitados > 0 && (
+                  <span style={{ color: "#8B9CC8" }}>
+                    {" "}· ={c.empatesPalpitados} empates apostados
+                  </span>
+                )}
+                {" "}· Campeão: {c.campeao || "—"}{" "}
                 {c.campeao === campeoReal && campeoReal
                   ? "\u2705 +" + pontosCampeaoPorFase(c.campeao_fase || "grupos")
                   : ""}

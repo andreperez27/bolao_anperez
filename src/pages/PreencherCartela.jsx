@@ -208,6 +208,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
             key={jogo.id}
             jogo={jogo}
             palpite={palpites[jogo.id]}
+            resultado={cartelaBloqueada ? resultados?.[jogo.id] : undefined}
             onChange={handlePalpite}
             disabled={cartelaBloqueada}
           />

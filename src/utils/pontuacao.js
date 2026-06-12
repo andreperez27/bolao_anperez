@@ -46,6 +46,14 @@ export function pontosCampeaoPorFase(fase) {
   return mapa[fase] || 20;
 }
 
+export function contarEmpatesPalpitados(palpites) {
+  if (!palpites) return 0;
+  return Object.entries(palpites).filter(([k, v]) => {
+    if (k === "__campeo") return false;
+    return v?.gols_a !== undefined && v.gols_a === v.gols_b;
+  }).length;
+}
+
 export function calcularPontosCartela(palpites, resultados, campeao, campeaoFase, campeoReal) {
   let total = 0;
   if (!palpites) return total;
