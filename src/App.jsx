@@ -151,6 +151,7 @@ export default function App() {
                 cartelas={atualCartelas}
                 config={config}
                 resultados={resultados}
+                onRefreshCartelas={refreshCartelas}
                 onNovaCartela={() => {
                   setCartelaEditando(null);
                   navigate("/preencher-cartela");

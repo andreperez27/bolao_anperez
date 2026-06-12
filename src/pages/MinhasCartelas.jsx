@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Btn } from "../components/Btn";
 import { Card } from "../components/Card";
 import { StatusBadge } from "../components/StatusBadge";
@@ -6,6 +6,7 @@ import { PainelFinanceiro } from "../components/PainelFinanceiro";
 import { calcularPontosCartela } from "../utils/pontuacao";
 import { JOGOS_TODOS } from "../services/jogos";
 import { useAuth } from "../contexts/AuthContext";
+import { listCartelas } from "../services/cartelas";
 
 export default function MinhasCartelas({
   cartelas,
@@ -20,9 +21,15 @@ export default function MinhasCartelas({
   onExcluirConta,
   onShowInstrucoes,
   onImportarCartela,
+  onRefreshCartelas,
 }) {
   const { jogador, user } = useAuth();
-  const nomeParticipante = jogador?.nome || user?.nome;
+
+  useEffect(() => {
+    if (onRefreshCartelas) onRefreshCartelas();
+  }, [onRefreshCartelas]);
+
+  const nomeParticipante = jogador?.nome || user?.nome || "";
   const minhas = cartelas.filter((c) => c.participante === nomeParticipante);
   const valorAposta = config?.valor_aposta || 20;
 
