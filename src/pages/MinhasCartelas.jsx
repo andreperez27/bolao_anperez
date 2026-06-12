@@ -21,8 +21,9 @@ export default function MinhasCartelas({
   onShowInstrucoes,
   onImportarCartela,
 }) {
-  const { jogador } = useAuth();
-  const minhas = cartelas.filter((c) => c.participante === jogador?.nome);
+  const { jogador, user } = useAuth();
+  const nomeParticipante = jogador?.nome || user?.nome;
+  const minhas = cartelas.filter((c) => c.participante === nomeParticipante);
   const valorAposta = config?.valor_aposta || 20;
 
   return (
