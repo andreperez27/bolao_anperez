@@ -6,7 +6,6 @@ import { PainelFinanceiro } from "../components/PainelFinanceiro";
 import { calcularPontosCartela } from "../utils/pontuacao";
 import { JOGOS_TODOS } from "../services/jogos";
 import { useAuth } from "../contexts/AuthContext";
-import { listCartelas } from "../services/cartelas";
 
 export default function MinhasCartelas({
   cartelas,
