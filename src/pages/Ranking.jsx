@@ -140,11 +140,6 @@ export default function Ranking({
         </div>
         <div style={{ color: "rgba(0,0,0,0.6)", fontSize: 13 }}>
           {new Set(cartelas.filter((c) => !NOMES_IA.includes(c.participante)).map((c) => c.participante)).size} participantes, {cartelas.filter((c) => !NOMES_IA.includes(c.participante)).length} cartelas
-          {cartelas.filter((c) => NOMES_IA.includes(c.participante)).length > 0 && (
-            <span style={{ marginLeft: 8, color: "#4285F4" }}>
-              + {new Set(cartelas.filter((c) => NOMES_IA.includes(c.participante)).map((c) => c.participante)).size} IA{cartelas.filter((c) => NOMES_IA.includes(c.participante)).length > 1 ? "s" : ""}
-            </span>
-          )}
         </div>
       </div>
 
@@ -223,7 +218,6 @@ export default function Ranking({
 
         {(() => {
           const humanos = ranking.filter((c) => !NOMES_IA.includes(c.participante));
-          const ias = ranking.filter((c) => NOMES_IA.includes(c.participante));
 
           const renderEntry = (c, idx, isIA) => (
             <div
@@ -300,14 +294,6 @@ export default function Ranking({
                     {"\uD83D\uDC64"} Participantes
                   </div>
                   {humanos.map((c, idx) => renderEntry(c, idx, false))}
-                </>
-              )}
-              {ias.length > 0 && (
-                <>
-                  <div style={{ color: "#8B9CC8", fontSize: 13, fontWeight: 700, marginBottom: 8, marginTop: 16, paddingTop: 12, borderTop: "1px solid #1E2A45" }}>
-                    {"\uD83E\uDD16"} Bancada de IAs
-                  </div>
-                  {ias.map((c, idx) => renderEntry(c, idx, true))}
                 </>
               )}
               {ranking.length === 0 && (
