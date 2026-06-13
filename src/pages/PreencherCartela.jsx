@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "../components/Card";
 import { Btn } from "../components/Btn";
 import { JogoCard } from "../components/JogoCard";
@@ -13,11 +13,18 @@ import {
 } from "../services/jogos";
 import { getFaseAtual, pontosCampeaoPorFase } from "../utils/pontuacao";
 import { isJogoBloqueado } from "../utils/datas";
+import { listarCartelasIA } from "../services/ia";
+import SugestoesIA from "../components/SugestoesIA";
 
 export default function PreencherCartela({ cartela, resultados, config, onSalvar, onVoltar, onPrintCartela }) {
   const [palpites, setPalpites] = useState(cartela?.palpites || {});
   const [campeao, setCampeao] = useState(cartela?.campeao || "");
   const [grupoAtivo, setGrupoAtivo] = useState("Grupo A");
+  const [iaCartelas, setIaCartelas] = useState([]);
+
+  useEffect(() => {
+    listarCartelasIA().then(setIaCartelas).catch(() => {});
+  }, []);
   const faseAtual = getFaseAtual(resultados);
 
   const fasesParaMostrar = [
@@ -232,14 +239,16 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
         </div>
 
         {jogosPorGrupo(grupoAtivo).map((jogo) => (
-          <JogoCard
-            key={jogo.id}
-            jogo={jogo}
-            palpite={palpites[jogo.id]}
-            resultado={resultados?.[jogo.id]}
-            onChange={handlePalpite}
-            disabled={false}
-          />
+          <div key={jogo.id}>
+            <JogoCard
+              jogo={jogo}
+              palpite={palpites[jogo.id]}
+              resultado={resultados?.[jogo.id]}
+              onChange={handlePalpite}
+              disabled={false}
+            />
+            <SugestoesIA iaCartelas={iaCartelas} jogoId={jogo.id} />
+          </div>
         ))}
 
         <div style={{ marginTop: 16, marginBottom: 24 }}>

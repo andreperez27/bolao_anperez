@@ -7,6 +7,8 @@ import { AdminPanel } from "../components/AdminPanel";
 import { LegendaDesempate } from "../components/LegendaDesempate";
 import { calcularPontos, pontosCampeaoPorFase } from "../utils/pontuacao";
 
+const IAS = ["🤖 Gemini (Google)", "🤖 ChatGPT (OpenAI)", "🤖 Claude (Anthropic)"];
+
 export default function Ranking({
   cartelas,
   resultados,
@@ -214,12 +216,14 @@ export default function Ranking({
 
         <LegendaDesempate />
 
-        {ranking.map((c, idx) => (
+        {ranking.map((c, idx) => {
+          const isIA = IAS.includes(c.participante);
+          return (
           <div
             key={c.id}
             style={{
-              background: "#111827",
-              border: "1px solid #1E2A45",
+              background: isIA ? "#0d1b2a" : "#111827",
+              border: isIA ? "1px solid #4285F466" : "1px solid #1E2A45",
               borderRadius: 12,
               padding: 16,
               marginBottom: 8,
@@ -242,6 +246,11 @@ export default function Ranking({
             <div style={{ flex: 1 }}>
               <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>
                 {c.participante}{" "}
+                {isIA && (
+                  <span style={{ background: "#4285F4", color: "#fff", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, marginLeft: 4, verticalAlign: "middle" }}>
+                    IA
+                  </span>
+                )}
                 <span style={{ color: "#8B9CC8", fontWeight: 400, fontSize: 12 }}>
                   ({c.nome || "Cartela"})
                 </span>
@@ -272,7 +281,8 @@ export default function Ranking({
               <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
             </div>
           </div>
-        ))}
+        );
+        })}
 
         {ranking.length === 0 && (
           <div style={{ textAlign: "center", color: "#8B9CC8", padding: 40 }}>
