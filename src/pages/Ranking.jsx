@@ -219,94 +219,70 @@ export default function Ranking({
 
         {(() => {
           const humanos = ranking.filter((c) => !NOMES_IA.includes(c.participante));
-          const ias = ranking.filter((c) => NOMES_IA.includes(c.participante));
-
-          const renderEntry = (c, idx, isIA) => (
-            <div
-              key={c.id}
-              onClick={() => onVerCartela?.(c)}
-              style={{
-                cursor: "pointer",
-                background: isIA ? "#0d1b2a" : "#111827",
-                border: isIA ? "1px solid #4285F466" : "1px solid #1E2A45",
-                borderRadius: 12,
-                padding: 16,
-                marginBottom: 8,
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              <div
-                style={{
-                  color: !isIA && idx < 3 ? "#FFD700" : "#8B9CC8",
-                  fontWeight: 900,
-                  fontSize: 18,
-                  width: 32,
-                  textAlign: "center",
-                }}
-              >
-                {!isIA && idx < 3 ? medalhas[idx] : `${idx + 1}º`}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>
-                  {c.participante}{" "}
-                  {isIA && (
-                    <span style={{ background: "#4285F4", color: "#fff", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, marginLeft: 4, verticalAlign: "middle" }}>
-                      IA
-                    </span>
-                  )}
-                  <span style={{ color: "#8B9CC8", fontWeight: 400, fontSize: 12 }}>
-                    ({c.nome || "Cartela"})
-                  </span>
-                </div>
-                <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>
-                  {c.acertos}/{c.total} acertos{" "}
-                  {c.placaresExatos > 0 && (
-                    <span style={{ color: "#FFD700", fontWeight: 700 }}>
-                      · 🎯 {c.placaresExatos} exatos
-                    </span>
-                  )}
-                  {c.empatesPalpitados > 0 && (
-                    <span style={{ color: "#8B9CC8" }}>
-                      {" "}· ={c.empatesPalpitados} empates apostados
-                    </span>
-                  )}
-                  {" "}· Campeão: {c.campeao || "—"}{" "}
-                  {c.campeao === campeoReal && campeoReal
-                    ? "\u2705 +" + pontosCampeaoPorFase(c.campeao_fase || "grupos")
-                    : ""}
-                  <span style={{ marginLeft: 6 }}>
-                    <StatusBadge status={c.status} />
-                  </span>
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ color: "#FFD700", fontWeight: 900, fontSize: 20 }}>{c.pts}</div>
-                <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
-              </div>
-            </div>
-          );
 
           return (
             <>
-              {humanos.length > 0 && (
-                <>
-                  <div style={{ color: "#8B9CC8", fontSize: 13, fontWeight: 700, marginBottom: 8, marginTop: 4 }}>
-                    {"\uD83D\uDC64"} Participantes
+              {humanos.length > 0 ? humanos.map((c, idx) => (
+                <div
+                  key={c.id}
+                  onClick={() => onVerCartela?.(c)}
+                  style={{
+                    cursor: "pointer",
+                    background: "#111827",
+                    border: "1px solid #1E2A45",
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      color: idx < 3 ? "#FFD700" : "#8B9CC8",
+                      fontWeight: 900,
+                      fontSize: 18,
+                      width: 32,
+                      textAlign: "center",
+                    }}
+                  >
+                    {idx < 3 ? medalhas[idx] : `${idx + 1}º`}
                   </div>
-                  {humanos.map((c, idx) => renderEntry(c, idx, false))}
-                </>
-              )}
-              {ias.length > 0 && (
-                <>
-                  <div style={{ color: "#8B9CC8", fontSize: 13, fontWeight: 700, marginBottom: 8, marginTop: 16, paddingTop: 12, borderTop: "1px solid #1E2A45" }}>
-                    {"\uD83E\uDD16"} Bancada de IAs
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>
+                      {c.participante}{" "}
+                      <span style={{ color: "#8B9CC8", fontWeight: 400, fontSize: 12 }}>
+                        ({c.nome || "Cartela"})
+                      </span>
+                    </div>
+                    <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>
+                      {c.acertos}/{c.total} acertos{" "}
+                      {c.placaresExatos > 0 && (
+                        <span style={{ color: "#FFD700", fontWeight: 700 }}>
+                          · 🎯 {c.placaresExatos} exatos
+                        </span>
+                      )}
+                      {c.empatesPalpitados > 0 && (
+                        <span style={{ color: "#8B9CC8" }}>
+                          {" "}· ={c.empatesPalpitados} empates apostados
+                        </span>
+                      )}
+                      {" "}· Campeão: {c.campeao || "—"}{" "}
+                      {c.campeao === campeoReal && campeoReal
+                        ? "\u2705 +" + pontosCampeaoPorFase(c.campeao_fase || "grupos")
+                        : ""}
+                      <span style={{ marginLeft: 6 }}>
+                        <StatusBadge status={c.status} />
+                      </span>
+                    </div>
                   </div>
-                  {ias.map((c, idx) => renderEntry(c, idx, true))}
-                </>
-              )}
-              {ranking.length === 0 && (
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ color: "#FFD700", fontWeight: 900, fontSize: 20 }}>{c.pts}</div>
+                    <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
+                  </div>
+                </div>
+              )) : (
                 <div style={{ textAlign: "center", color: "#8B9CC8", padding: 40 }}>
                   Nenhuma cartela ainda
                 </div>
