@@ -21,6 +21,7 @@ export default function MinhasCartelas({
   onShowInstrucoes,
   onImportarCartela,
   onRefreshCartelas,
+  onVerTabela,
 }) {
   const { jogador, user } = useAuth();
 
@@ -87,6 +88,23 @@ export default function MinhasCartelas({
             >
               {"\uD83C\uDFC5"} Ranking
             </button>
+            {onVerTabela && (
+              <button
+                onClick={onVerTabela}
+                style={{
+                  background: "transparent",
+                  border: "1px solid #FFD700",
+                  borderRadius: 8,
+                  color: "#FFD700",
+                  padding: "8px 12px",
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                {"\uD83D\uDCC5"} Tabela
+              </button>
+            )}
           </div>
         </div>
       </div>

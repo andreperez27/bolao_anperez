@@ -2,21 +2,19 @@ import { useState, useEffect, useCallback } from "react";
 import { listCartelas, salvarCartela, deletarCartela, validarCartela } from "../services/cartelas";
 import { useAuth } from "../contexts/AuthContext";
 
-export function useCartelas() {
+export function useCartelas(grupoId = '00000000-0000-0000-0000-000000000000') {
   const { user, jogador } = useAuth();
   const [cartelas, setCartelas] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
     try {
-      const data = await listCartelas();
+      const data = await listCartelas(grupoId);
       setCartelas(data || []);
     } catch {
       setCartelas([]);
     }
-    setLoading(false);
-  }, []);
+  }, [grupoId]);
 
   useEffect(() => {
     if (!user) {
@@ -24,30 +22,27 @@ export function useCartelas() {
       setLoading(false);
       return;
     }
-
     let ativo = true;
-
     async function carregar() {
       setLoading(true);
       try {
-        const data = await listCartelas();
+        const data = await listCartelas(grupoId);
         if (ativo) setCartelas(data || []);
       } catch {
         if (ativo) setCartelas([]);
       }
       if (ativo) setLoading(false);
     }
-
     carregar();
     const id = setInterval(carregar, 30000);
     return () => {
       ativo = false;
       clearInterval(id);
     };
-  }, [user]);
+  }, [user, grupoId]);
 
   const salvar = async (cartela) => {
-    const nova = { ...cartela };
+    const nova = { ...cartela, grupo_id: grupoId };
     if (!nova.id) nova.id = "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
     nova.participante = jogador?.nome || user?.nome || nova.participante;
     if (!nova.status) nova.status = "aguardando";
@@ -63,15 +58,8 @@ export function useCartelas() {
     return nova;
   };
 
-  const deletar = async (cartelaId) => {
-    await deletarCartela(cartelaId);
-    await refresh();
-  };
-
-  const validar = async (cartelaId, status) => {
-    await validarCartela(cartelaId, status);
-    await refresh();
-  };
+  const deletar = async (id) => { await deletarCartela(id); await refresh(); };
+  const validar = async (id, status) => { await validarCartela(id, status); await refresh(); };
 
   return { cartelas, loading, refresh, salvar, deletar, validar };
 }

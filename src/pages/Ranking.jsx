@@ -18,6 +18,7 @@ export default function Ranking({
   onValidarCartela,
   onResultadosChange,
   onShowInstrucoes,
+  onVerTabela,
 }) {
   const medalhas = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"];
 
@@ -101,6 +102,23 @@ export default function Ranking({
           >
             {"\u2190"} Voltar
           </button>
+          {onVerTabela && (
+            <button
+              onClick={onVerTabela}
+              style={{
+                background: "rgba(0,0,0,0.15)",
+                border: "1px solid rgba(0,0,0,0.3)",
+                borderRadius: 8,
+                color: "#000",
+                padding: "6px 10px",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {"\uD83D\uDCC5"} Tabela
+            </button>
+          )}
           <button
             onClick={onShowInstrucoes}
             style={{

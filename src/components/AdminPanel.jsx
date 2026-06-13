@@ -35,7 +35,7 @@ export function AdminPanel({
   useEffect(() => {
     getConfig().then((cfg) => {
       setValorAposta(cfg.valor_aposta);
-      setApiUrl(cfg.api_url);
+      setApiUrl(cfg.api_url || "");
       setBonusGeral(cfg.bonus_geral || 0);
     }).catch(() => {});
   }, []);

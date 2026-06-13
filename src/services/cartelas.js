@@ -1,7 +1,9 @@
 import { supabaseFetch, supabaseHeaders, SUPABASE_URL } from "./supabase";
 
-export async function listCartelas() {
-  const res = await supabaseFetch("/rest/v1/cartelas?select=*&order=created_at.desc");
+export async function listCartelas(grupoId) {
+  let url = "/rest/v1/cartelas?select=*&order=created_at.desc";
+  if (grupoId) url += "&grupo_id=eq." + encodeURIComponent(grupoId);
+  const res = await supabaseFetch(url);
   if (!res.ok) throw new Error("Erro ao carregar cartelas");
   return await res.json() || [];
 }
@@ -19,6 +21,7 @@ export async function salvarCartela(cartela) {
       campeao_fase: cartela.campeao_fase || "grupos",
       status: cartela.status || "aguardando",
       valor_pago: cartela.valor_pago || 20,
+      grupo_id: cartela.grupo_id || '00000000-0000-0000-0000-000000000000',
       created_at: cartela.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }),

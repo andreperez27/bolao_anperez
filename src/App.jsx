@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import MinhasCartelas from "./pages/MinhasCartelas";
 import PreencherCartela from "./pages/PreencherCartela";
 import RankingPage from "./pages/Ranking";
+import Tabela from "./pages/Tabela";
 import { ModalInstrucoes } from "./components/ModalInstrucoes";
 import { PrintArea } from "./components/PrintArea";
 import { OfflineBanner } from "./components/OfflineBanner";
@@ -163,10 +164,11 @@ export default function App() {
                 onVerRanking={() => navigate("/ranking")}
                 onExcluirCartela={deletar}
                 onPrintCartela={handlePrintCartela}
-                  onSair={handleSair}
-                  onExcluirConta={handleExcluirConta}
-                  onShowInstrucoes={() => setShowInstrucoes(true)}
-                  onImportarCartela={handleImportarCartela}
+                onSair={handleSair}
+                onExcluirConta={handleExcluirConta}
+                onShowInstrucoes={() => setShowInstrucoes(true)}
+                onImportarCartela={handleImportarCartela}
+                onVerTabela={() => navigate("/tabela")}
               />
             ) : (
               <Login onLogin={handleLogin} />
@@ -204,6 +206,27 @@ export default function App() {
               onValidarCartela={handleValidarCartela}
               onResultadosChange={handleResultadosChange}
               onShowInstrucoes={() => setShowInstrucoes(true)}
+              onVerTabela={() => navigate("/tabela")}
+            />
+          }
+        />
+        <Route
+          path="/tabela"
+          element={
+            <Tabela
+              resultados={resultados}
+              campeoReal={campeoReal}
+              onVoltar={() => navigate(-1)}
+            />
+          }
+        />
+        <Route
+          path="/grupo/:slug/tabela"
+          element={
+            <Tabela
+              resultados={resultados}
+              campeoReal={campeoReal}
+              onVoltar={() => navigate(-1)}
             />
           }
         />
