@@ -187,7 +187,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
           <select
             value={campeao}
             onChange={(e) => setCampeao(e.target.value)}
-            disabled={false}
+            disabled={!isDono}
             style={{
               width: "100%",
               background: "#1a2234",
