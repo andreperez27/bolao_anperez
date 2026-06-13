@@ -15,8 +15,13 @@ import { getFaseAtual, pontosCampeaoPorFase } from "../utils/pontuacao";
 import { isJogoBloqueado } from "../utils/datas";
 import { listarCartelasIA } from "../services/ia";
 import SugestoesIA from "../components/SugestoesIA";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function PreencherCartela({ cartela, resultados, config, onSalvar, onVoltar, onPrintCartela }) {
+  const { jogador, user } = useAuth();
+  const nomeUsuario = jogador?.nome || user?.nome || "";
+  const isDono = !cartela?.participante || cartela.participante === nomeUsuario;
+
   const [palpites, setPalpites] = useState(cartela?.palpites || {});
   const [campeao, setCampeao] = useState(cartela?.campeao || "");
   const [grupoAtivo, setGrupoAtivo] = useState("Grupo A");
@@ -129,6 +134,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
           <div style={{ flex: 1 }}>
             <div style={{ color: "#fff", fontSize: 18, fontWeight: 900 }}>
               {cartela?.nome || "Nova Cartela"}
+              {!isDono && <span style={{ color: "#8B9CC8", fontSize: 11, fontWeight: 400, marginLeft: 8 }}>de {cartela?.participante}</span>}
             </div>
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>
               {isNew ? "Nova" : "Editando"} {"·"} R$ {valorAposta.toFixed(2).replace(".", ",")}
@@ -240,13 +246,13 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
 
         {jogosPorGrupo(grupoAtivo).map((jogo) => (
           <div key={jogo.id}>
-            <JogoCard
-              jogo={jogo}
-              palpite={palpites[jogo.id]}
-              resultado={resultados?.[jogo.id]}
-              onChange={handlePalpite}
-              disabled={false}
-            />
+              <JogoCard
+                jogo={jogo}
+                palpite={palpites[jogo.id]}
+                resultado={resultados?.[jogo.id]}
+                onChange={handlePalpite}
+                disabled={!isDono}
+              />
             <SugestoesIA iaCartelas={iaCartelas} jogoId={jogo.id} />
           </div>
         ))}
@@ -262,14 +268,20 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
           >
             {totalPalpitados} de {totalJogos} palpites preenchidos
           </div>
-          <Btn
-            onClick={handleSalvar}
-            cor="#16a34a"
-            style={{ width: "100%", fontSize: 16 }}
-            disabled={false}
-          >
-            {isNew ? "Criar Cartela" : "Salvar Cartela"}
-          </Btn>
+          {isDono ? (
+            <Btn
+              onClick={handleSalvar}
+              cor="#16a34a"
+              style={{ width: "100%", fontSize: 16 }}
+              disabled={false}
+            >
+              {isNew ? "Criar Cartela" : "Salvar Cartela"}
+            </Btn>
+          ) : (
+            <div style={{ textAlign: "center", color: "#8B9CC8", fontSize: 13, marginTop: 8 }}>
+              {"\uD83D\uDC41"} Visualizando cartela de <strong>{cartela?.participante}</strong>
+            </div>
+          )}
         </div>
       </div>
     </div>
