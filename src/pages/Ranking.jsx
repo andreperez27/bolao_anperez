@@ -20,6 +20,7 @@ export default function Ranking({
   onResultadosChange,
   onShowInstrucoes,
   onVerTabela,
+  onVerCartela,
 }) {
   const medalhas = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"];
 
@@ -220,7 +221,9 @@ export default function Ranking({
           return (
           <div
             key={c.id}
+            onClick={() => onVerCartela?.(c)}
             style={{
+              cursor: "pointer",
               background: isIA ? "#0d1b2a" : "#111827",
               border: isIA ? "1px solid #4285F466" : "1px solid #1E2A45",
               borderRadius: 12,

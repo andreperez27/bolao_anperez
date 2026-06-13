@@ -207,6 +207,7 @@ export default function App() {
               onResultadosChange={handleResultadosChange}
               onShowInstrucoes={() => setShowInstrucoes(true)}
               onVerTabela={() => navigate("/tabela")}
+              onVerCartela={(c) => { setCartelaEditando(c); navigate("/preencher-cartela"); }}
             />
           }
         />
