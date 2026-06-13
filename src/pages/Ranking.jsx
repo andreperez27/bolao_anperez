@@ -69,6 +69,51 @@ export default function Ranking({
     return (a.participante || "").localeCompare(b.participante || "", "pt-BR");
   });
 
+  const iasNoRanking = Object.values(
+    cartelas.filter((c) => NOMES_IA.includes(c.participante)).reduce((acc, c) => {
+      let pts = 0;
+      let total = 0;
+      let acertos = 0;
+      let placaresExatos = 0;
+      let diferencasCertas = 0;
+      let vencedoresCertos = 0;
+      let empatesPalpitados = 0;
+      for (const [k, v] of Object.entries(c.palpites || {})) {
+        if (k === "__campeo") continue;
+        total++;
+        const r = resultados[k];
+        const { pts: pt, tipo } = calcularPontos(v, r);
+        pts += pt;
+        if (tipo !== "errou" && tipo !== "pendente") acertos++;
+        if (tipo === "placar_exato")    placaresExatos++;
+        if (tipo === "diferenca_certa") diferencasCertas++;
+        if (tipo === "vencedor_certo")  vencedoresCertos++;
+        if (v?.gols_a !== undefined && v.gols_a === v.gols_b) empatesPalpitados++;
+      }
+      if (campeoReal && c.campeao === campeoReal) {
+        pts += pontosCampeaoPorFase(c.campeao_fase || "grupos");
+      }
+      pts += Number(config?.bonus_geral) || 0;
+      const existente = acc[c.participante];
+      if (!existente || pts > existente.pts) {
+        acc[c.participante] = {
+          ...c, pts, total, acertos,
+          placaresExatos, diferencasCertas,
+          vencedoresCertos, empatesPalpitados,
+        };
+      }
+      return acc;
+    }, {})
+  ).sort((a, b) => {
+    if (b.pts !== a.pts)                           return b.pts - a.pts;
+    if (b.placaresExatos !== a.placaresExatos)     return b.placaresExatos - a.placaresExatos;
+    if (b.diferencasCertas !== a.diferencasCertas) return b.diferencasCertas - a.diferencasCertas;
+    if (b.vencedoresCertos !== a.vencedoresCertos) return b.vencedoresCertos - a.vencedoresCertos;
+    if (a.empatesPalpitados !== b.empatesPalpitados) return a.empatesPalpitados - b.empatesPalpitados;
+    if (b.acertos !== a.acertos)                   return b.acertos - a.acertos;
+    return (a.participante || "").localeCompare(b.participante || "", "pt-BR");
+  });
+
   const primeiro = ranking[0] || null;
   const segundo = ranking[1] || null;
   const terceiro = ranking[2] || null;
@@ -218,74 +263,87 @@ export default function Ranking({
         <LegendaDesempate />
 
         {(() => {
-          const humanos = ranking.filter((c) => !NOMES_IA.includes(c.participante));
+          const renderCard = (c, idx, isIA) => (
+            <div
+              key={c.id}
+              onClick={() => onVerCartela?.(c)}
+              style={{
+                cursor: "pointer",
+                background: isIA ? "#0d1b2a" : "#111827",
+                border: isIA ? "1px solid #4285F466" : "1px solid #1E2A45",
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 8,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  color: !isIA && idx < 3 ? "#FFD700" : "#8B9CC8",
+                  fontWeight: 900,
+                  fontSize: 18,
+                  width: 32,
+                  textAlign: "center",
+                }}
+              >
+                {!isIA && idx < 3 ? medalhas[idx] : `${idx + 1}º`}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>
+                  {c.participante}{" "}
+                  {isIA && (
+                    <span style={{ background: "#4285F4", color: "#fff", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, marginLeft: 4, verticalAlign: "middle" }}>
+                      IA
+                    </span>
+                  )}
+                  <span style={{ color: "#8B9CC8", fontWeight: 400, fontSize: 12 }}>
+                    ({c.nome || "Cartela"})
+                  </span>
+                </div>
+                <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>
+                  {c.acertos}/{c.total} acertos{" "}
+                  {c.placaresExatos > 0 && (
+                    <span style={{ color: "#FFD700", fontWeight: 700 }}>
+                      · 🎯 {c.placaresExatos} exatos
+                    </span>
+                  )}
+                  {c.empatesPalpitados > 0 && (
+                    <span style={{ color: "#8B9CC8" }}>
+                      {" "}· ={c.empatesPalpitados} empates apostados
+                    </span>
+                  )}
+                  {" "}· Campeão: {c.campeao || "—"}{" "}
+                  {c.campeao === campeoReal && campeoReal
+                    ? "\u2705 +" + pontosCampeaoPorFase(c.campeao_fase || "grupos")
+                    : ""}
+                  <span style={{ marginLeft: 6 }}>
+                    <StatusBadge status={c.status} />
+                  </span>
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ color: "#FFD700", fontWeight: 900, fontSize: 20 }}>{c.pts}</div>
+                <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
+              </div>
+            </div>
+          );
 
           return (
             <>
-              {humanos.length > 0 ? humanos.map((c, idx) => (
-                <div
-                  key={c.id}
-                  onClick={() => onVerCartela?.(c)}
-                  style={{
-                    cursor: "pointer",
-                    background: "#111827",
-                    border: "1px solid #1E2A45",
-                    borderRadius: 12,
-                    padding: 16,
-                    marginBottom: 8,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      color: idx < 3 ? "#FFD700" : "#8B9CC8",
-                      fontWeight: 900,
-                      fontSize: 18,
-                      width: 32,
-                      textAlign: "center",
-                    }}
-                  >
-                    {idx < 3 ? medalhas[idx] : `${idx + 1}º`}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>
-                      {c.participante}{" "}
-                      <span style={{ color: "#8B9CC8", fontWeight: 400, fontSize: 12 }}>
-                        ({c.nome || "Cartela"})
-                      </span>
-                    </div>
-                    <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>
-                      {c.acertos}/{c.total} acertos{" "}
-                      {c.placaresExatos > 0 && (
-                        <span style={{ color: "#FFD700", fontWeight: 700 }}>
-                          · 🎯 {c.placaresExatos} exatos
-                        </span>
-                      )}
-                      {c.empatesPalpitados > 0 && (
-                        <span style={{ color: "#8B9CC8" }}>
-                          {" "}· ={c.empatesPalpitados} empates apostados
-                        </span>
-                      )}
-                      {" "}· Campeão: {c.campeao || "—"}{" "}
-                      {c.campeao === campeoReal && campeoReal
-                        ? "\u2705 +" + pontosCampeaoPorFase(c.campeao_fase || "grupos")
-                        : ""}
-                      <span style={{ marginLeft: 6 }}>
-                        <StatusBadge status={c.status} />
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "#FFD700", fontWeight: 900, fontSize: 20 }}>{c.pts}</div>
-                    <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
-                  </div>
-                </div>
-              )) : (
+              {ranking.length > 0 ? ranking.map((c, idx) => renderCard(c, idx, false)) : (
                 <div style={{ textAlign: "center", color: "#8B9CC8", padding: 40 }}>
                   Nenhuma cartela ainda
                 </div>
+              )}
+              {iasNoRanking.length > 0 && (
+                <>
+                  <div style={{ color: "#8B9CC8", fontSize: 13, fontWeight: 700, marginBottom: 8, marginTop: 16, paddingTop: 12, borderTop: "1px solid #1E2A45" }}>
+                    {"\uD83E\uDD16"} Bancada de IAs
+                  </div>
+                  {iasNoRanking.map((c, idx) => renderCard(c, idx, true))}
+                </>
               )}
             </>
           );
