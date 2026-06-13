@@ -7,7 +7,7 @@ import { AdminPanel } from "../components/AdminPanel";
 import { LegendaDesempate } from "../components/LegendaDesempate";
 import { calcularPontos, pontosCampeaoPorFase } from "../utils/pontuacao";
 
-const IAS = ["🤖 Gemini (Google)", "🤖 ChatGPT (OpenAI)", "🤖 Claude (Anthropic)"];
+const IAS = ["🤖 Gemini (Google)", "🤖 ChatGPT (OpenAI)", "🤖 Claude (Anthropic)"]; // NOMES_IA — mantido inline para evitar import circular
 
 export default function Ranking({
   cartelas,

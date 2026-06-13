@@ -1,13 +1,14 @@
 -- ============================================================
 -- BOLÃO COPA 2026 — Bancada de IAs
+-- Adaptado: jogadores usa nome como PK (sem coluna id)
 -- ============================================================
 
--- 1. Flag para identificar robôs na tabela jogadores
+-- 1. Flag para identificar robôs
 ALTER TABLE jogadores ADD COLUMN IF NOT EXISTS is_ia BOOLEAN DEFAULT FALSE;
 
--- 2. Criar os perfis das IAs (UUIDs fixos para referência)
-INSERT INTO jogadores (id, nome, email, is_ia) VALUES
-  ('ia-gemini-uuid-0001', '🤖 Gemini (Google)',   'gemini@bolao.local', TRUE),
-  ('ia-gpt-uuid-0002',   '🤖 ChatGPT (OpenAI)',   'chatgpt@bolao.local', TRUE),
-  ('ia-claude-uuid-0003', '🤖 Claude (Anthropic)',  'claude@bolao.local', TRUE)
-ON CONFLICT (id) DO NOTHING;
+-- 2. Inserir perfis das IAs (nome é a PK, sem id)
+INSERT INTO jogadores (nome, email, is_ia) VALUES
+  ('🤖 Gemini (Google)',   'gemini@bolao.local', TRUE),
+  ('🤖 ChatGPT (OpenAI)',   'chatgpt@bolao.local', TRUE),
+  ('🤖 Claude (Anthropic)', 'claude@bolao.local', TRUE)
+ON CONFLICT (nome) DO NOTHING;
