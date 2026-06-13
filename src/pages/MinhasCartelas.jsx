@@ -6,6 +6,7 @@ import { PainelFinanceiro } from "../components/PainelFinanceiro";
 import { calcularPontosCartela } from "../utils/pontuacao";
 import { JOGOS_TODOS } from "../services/jogos";
 import { useAuth } from "../contexts/AuthContext";
+import { NOMES_IA } from "../services/ia";
 
 export default function MinhasCartelas({
   cartelas,
@@ -111,7 +112,7 @@ export default function MinhasCartelas({
 
       <div style={{ padding: "14px 16px 0" }}>
         <PainelFinanceiro
-          totalParticipantes={cartelas.length}
+          totalParticipantes={cartelas.filter((c) => !NOMES_IA.includes(c.participante)).length}
           valorAposta={valorAposta}
         />
 

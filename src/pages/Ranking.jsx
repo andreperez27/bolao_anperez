@@ -6,8 +6,7 @@ import { PainelFinanceiro } from "../components/PainelFinanceiro";
 import { AdminPanel } from "../components/AdminPanel";
 import { LegendaDesempate } from "../components/LegendaDesempate";
 import { calcularPontos, pontosCampeaoPorFase } from "../utils/pontuacao";
-
-const IAS = ["🤖 Gemini (Google)", "🤖 ChatGPT (OpenAI)", "🤖 Claude (Anthropic)"]; // NOMES_IA — mantido inline para evitar import circular
+import { NOMES_IA } from "../services/ia";
 
 export default function Ranking({
   cartelas,
@@ -139,13 +138,13 @@ export default function Ranking({
           {"\uD83C\uDFC5"} Ranking do Bolão
         </div>
         <div style={{ color: "rgba(0,0,0,0.6)", fontSize: 13 }}>
-          {new Set(cartelas.map((c) => c.participante)).size} participantes, {cartelas.length} cartelas
+          {new Set(cartelas.filter((c) => !NOMES_IA.includes(c.participante)).map((c) => c.participante)).size} participantes, {cartelas.filter((c) => !NOMES_IA.includes(c.participante)).length} cartelas
         </div>
       </div>
 
       <div style={{ padding: "14px 16px 0" }}>
         <PainelFinanceiro
-          totalParticipantes={new Set(cartelas.map((c) => c.participante)).size}
+          totalParticipantes={new Set(cartelas.filter((c) => !NOMES_IA.includes(c.participante)).map((c) => c.participante)).size}
           valorAposta={config?.valor_aposta || 20}
         />
 
@@ -217,7 +216,7 @@ export default function Ranking({
         <LegendaDesempate />
 
         {ranking.map((c, idx) => {
-          const isIA = IAS.includes(c.participante);
+          const isIA = NOMES_IA.includes(c.participante);
           return (
           <div
             key={c.id}
