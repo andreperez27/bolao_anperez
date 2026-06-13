@@ -25,7 +25,7 @@ export default function Ranking({
   const medalhas = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"];
 
   const ranking = Object.values(
-    cartelas.reduce((acc, c) => {
+    cartelas.filter((c) => !NOMES_IA.includes(c.participante)).reduce((acc, c) => {
       let pts = 0;
       let total = 0;
       let acertos = 0;
