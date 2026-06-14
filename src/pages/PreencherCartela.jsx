@@ -23,6 +23,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
   const nomeUsuario = jogador?.nome || user?.nome || "";
   const isDono = !cartela?.participante || cartela.participante === nomeUsuario;
 
+  const [nomeCartela, setNomeCartela] = useState(cartela?.nome || "");
   const [palpites, setPalpites] = useState(cartela?.palpites || {});
   const [campeao, setCampeao] = useState(cartela?.campeao || "");
   const [grupoAtivo, setGrupoAtivo] = useState("Grupo A");
@@ -59,6 +60,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
 
     onSalvar({
       ...cartela,
+      nome: nomeCartela.trim() || "Cartela",
       palpites: palpitesFiltrados,
       campeao,
       campeao_fase: cartela?.campeao_fase || (campeao ? faseAtual : undefined),
@@ -183,6 +185,28 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
             {"\u23F3"} Aguardando validação do pagamento pelo administrador.
           </div>
         )}
+
+        <Card style={{ marginBottom: 14 }}>
+          <div style={{ color: "#8B9CC8", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+            Nome da Cartela
+          </div>
+          <input
+            value={nomeCartela}
+            onChange={(e) => setNomeCartela(e.target.value)}
+            disabled={!isDono}
+            placeholder="Ex: Cartela do João"
+            maxLength={60}
+            style={{
+              width: "100%",
+              background: "#1a2234",
+              border: "2px solid #1E2A45",
+              borderRadius: 8,
+              color: "#F0F4FF",
+              padding: "10px 12px",
+              fontSize: 15,
+            }}
+          />
+        </Card>
 
         <Card style={{ marginBottom: 14, border: "2px solid #FFD70044" }}>
           <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14, marginBottom: 10 }}>
