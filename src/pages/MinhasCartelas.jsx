@@ -178,7 +178,7 @@ export default function MinhasCartelas({
             {"\u2190"} Sair
           </button>
           <button
-            onClick={onExcluirConta}
+            onClick={() => { if (window.confirm("Tem certeza que deseja excluir sua conta? Todos os seus dados serão perdidos.")) onExcluirConta(); }}
             style={{
               flex: 1,
               background: "transparent",
@@ -263,7 +263,9 @@ export default function MinhasCartelas({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onExcluirCartela(c.id);
+                  if (window.confirm(`Excluir cartela "${c.nome || c.id}"? Essa ação não pode ser desfeita.`)) {
+                    onExcluirCartela(c.id);
+                  }
                 }}
                 style={{
                   background: "transparent",
