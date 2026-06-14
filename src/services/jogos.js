@@ -205,10 +205,13 @@ export const ALIASES_TIMES = {
   "bosnia": "Bosnia & Herzegovina",
   "bosnia and herzegovina": "Bosnia & Herzegovina",
   "bosnia & herzegovina": "Bosnia & Herzegovina",
+  "bosnia-herzegovina": "Bosnia & Herzegovina",
   "cabo verde": "Cabo Verde",
   "cape verde": "Cabo Verde",
+  "cape verde islands": "Cabo Verde",
   "rd congo": "RD Congo",
   "dr congo": "RD Congo",
+  "congo dr": "RD Congo",
   "republica democratica do congo": "RD Congo",
   "democratic republic of the congo": "RD Congo",
 };
