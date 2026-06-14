@@ -79,7 +79,7 @@ export function AdminPanel({
   );
 
   const handleBuscarResultados = useCallback(async () => {
-    const url = apiUrl || "https://worldcup26.ir/get/games";
+    const url = apiUrl || "https://wheniskickoff.com/data/v1/matches.json";
     setBuscando(true);
     setMsgBusca("Buscando resultados...");
     try {
@@ -228,7 +228,7 @@ export function AdminPanel({
             <input
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="URL da API (ex: https://worldcup26.ir/get/games)"
+              placeholder="https://wheniskickoff.com/data/v1/matches.json"
               style={{
                 flex: 1,
                 background: "#1a2234",
@@ -452,7 +452,7 @@ export function AdminPanel({
             <input
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="https://worldcup26.ir/get/games"
+              placeholder="https://wheniskickoff.com/data/v1/matches.json"
               style={{
                 width: "100%",
                 background: "#1a2234",

@@ -5,17 +5,35 @@ export function parseResultadosDeAPI(matches) {
   if (!Array.isArray(matches)) return novos;
 
   matches.forEach((m) => {
-    const home = m.home_team || m.team1 || m.homeTeam || {};
-    const away = m.away_team || m.team2 || m.awayTeam || {};
-    const homeName = normalizarNomePais(home.name || home.country || "");
-    const awayName = normalizarNomePais(away.name || away.country || "");
+    let homeName = m.home_name || "";
+    let awayName = m.away_name || "";
+    let homeGoals = m.score_home;
+    let awayGoals = m.score_away;
+    let statusRaw = (m.status || "").toLowerCase();
 
-    const homeGoals = m.home_score ?? m.goals_home ?? m.homeTeam?.goals ?? m.score?.fullTime?.home;
-    const awayGoals = m.away_score ?? m.goals_away ?? m.awayTeam?.goals ?? m.score?.fullTime?.away;
+    if (!homeName) {
+      const home = m.home_team || m.team1 || m.homeTeam || {};
+      homeName = home.name || home.country || "";
+    }
+    if (!awayName) {
+      const away = m.away_team || m.team2 || m.awayTeam || {};
+      awayName = away.name || away.country || "";
+    }
+    if (homeGoals === undefined) {
+      homeGoals = m.home_score ?? m.goals_home ?? m.homeTeam?.goals ?? m.score?.fullTime?.home;
+    }
+    if (awayGoals === undefined) {
+      awayGoals = m.away_score ?? m.goals_away ?? m.awayTeam?.goals ?? m.score?.fullTime?.away;
+    }
+    if (!statusRaw) {
+      statusRaw = (m.status || m.matchStatus || "").toLowerCase();
+    }
+
+    homeName = normalizarNomePais(homeName);
+    awayName = normalizarNomePais(awayName);
+
     if (homeGoals === null || homeGoals === undefined || awayGoals === null || awayGoals === undefined) return;
-
-    const status = (m.status || m.matchStatus || "").toLowerCase();
-    if (status && !["finished", "ft", "completed", "encerrado", "fim"].includes(status)) return;
+    if (statusRaw && !["finished", "ft", "completed", "encerrado", "fim"].includes(statusRaw)) return;
 
     JOGOS_TODOS.forEach((j) => {
       const nomeA = normalizarNomePais(j.time_a);
