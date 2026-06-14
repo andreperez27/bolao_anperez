@@ -36,7 +36,7 @@ function formatarContagem(ms) {
   return `${s}s`;
 }
 
-export function JogosDoDia({ resultados }) {
+export function JogosDoDia({ resultados, palpites }) {
   const [agora, setAgora] = useState(new Date());
 
   useEffect(() => {
@@ -238,14 +238,22 @@ export function JogosDoDia({ resultados }) {
                   display: "flex", alignItems: "center", gap: 7,
                 }}>
                   <Flag time={j.time_b} size={20} />
-                  <span style={{
-                    fontSize: 13, fontWeight: 700,
-                    color: ok && Number(res.placar_b) > Number(res.placar_a)
-                      ? "#FFD700" : "#F0F4FF",
-                  }}>{j.time_b}</span>
+                    <span style={{
+                      fontSize: 13, fontWeight: 700,
+                      color: ok && Number(res.placar_b) > Number(res.placar_a)
+                        ? "#FFD700" : "#F0F4FF",
+                    }}>{j.time_b}</span>
+                  </div>
                 </div>
+              {palpites?.[j.id] && (
+                <div style={{
+                  marginTop: 8, paddingTop: 6, borderTop: "1px solid rgba(255,255,255,0.06)",
+                  textAlign: "center", fontSize: 11, color: "#8B9CC8",
+                }}>
+                  Seu palpite: {palpites[j.id].gols_a} × {palpites[j.id].gols_b}
+                </div>
+              )}
               </div>
-            </div>
           );
         })}
       </div>

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Btn } from "../components/Btn";
 import { Card } from "../components/Card";
 import { StatusBadge } from "../components/StatusBadge";
@@ -55,6 +55,7 @@ export default function MinhasCartelas({
   const { jogador, user } = useAuth();
   const [confirmDelete, setConfirmDelete] = React.useState(null);
   const [confirmConta, setConfirmConta] = React.useState(false);
+  const [tabAtiva, setTabAtiva] = React.useState("cartelas");
 
   useEffect(() => {
     if (onRefreshCartelas) onRefreshCartelas();
@@ -63,6 +64,14 @@ export default function MinhasCartelas({
   const nomeParticipante = jogador?.nome || user?.nome || "";
   const minhas = cartelas.filter((c) => c.participante === nomeParticipante);
   const valorAposta = config?.valor_aposta || 20;
+
+  const palpitesAgregados = useMemo(() => {
+    const merged = {};
+    for (const c of minhas) {
+      Object.assign(merged, c.palpites || {});
+    }
+    return merged;
+  }, [minhas]);
 
   return (
     <div style={{ minHeight: "100vh", background: "#0A0E1A", paddingBottom: 80 }}>
@@ -141,57 +150,6 @@ export default function MinhasCartelas({
       </div>
 
       <div style={{ padding: "14px 16px 0" }}>
-        <PainelFinanceiro
-          totalParticipantes={cartelas.filter((c) => !NOMES_IA.includes(c.participante)).length}
-          valorAposta={valorAposta}
-        />
-
-        <JogosDoDia resultados={resultados} />
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 14,
-          }}
-        >
-          <div style={{ color: "#F0F4FF", fontWeight: 800, fontSize: 16 }}>
-            Minhas Cartelas
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              type="file"
-              accept=".html"
-              id="importCartelaInput"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) onImportarCartela(file);
-                e.target.value = "";
-              }}
-            />
-            <button
-              onClick={() => document.getElementById("importCartelaInput").click()}
-              style={{
-                background: "transparent",
-                border: "1px solid #1E2A45",
-                borderRadius: 8,
-                color: "#8B9CC8",
-                padding: "8px 12px",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              {"\uD83D\uDCC2"} Importar
-            </button>
-            <Btn onClick={onNovaCartela} cor="#16a34a" style={{ padding: "8px 16px", fontSize: 13 }}>
-              + Nova
-            </Btn>
-          </div>
-        </div>
-
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           <button
             onClick={onSair}
@@ -227,12 +185,181 @@ export default function MinhasCartelas({
           </button>
         </div>
 
-        {minhas.length === 0 && (
-          <Card>
-            <div style={{ textAlign: "center", color: "#8B9CC8", padding: 20 }}>
-              Você ainda não tem cartelas. Clique em + Nova para criar!
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <button
+            onClick={() => setTabAtiva("jogos")}
+            style={{
+              flex: 1,
+              background: tabAtiva === "jogos" ? "#FFD700" : "transparent",
+              border: `1px solid ${tabAtiva === "jogos" ? "#FFD700" : "#1E2A45"}`,
+              borderRadius: 8,
+              color: tabAtiva === "jogos" ? "#000" : "#8B9CC8",
+              padding: "10px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {"\uD83D\uDCC5"} Jogos do Dia
+          </button>
+          <button
+            onClick={() => setTabAtiva("cartelas")}
+            style={{
+              flex: 1,
+              background: tabAtiva === "cartelas" ? "#FFD700" : "transparent",
+              border: `1px solid ${tabAtiva === "cartelas" ? "#FFD700" : "#1E2A45"}`,
+              borderRadius: 8,
+              color: tabAtiva === "cartelas" ? "#000" : "#8B9CC8",
+              padding: "10px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {"\uD83D\uDCCB"} Minhas Cartelas
+          </button>
+        </div>
+
+        {tabAtiva === "jogos" && (
+          <JogosDoDia resultados={resultados} palpites={palpitesAgregados} />
+        )}
+
+        {tabAtiva === "cartelas" && (
+          <>
+            <PainelFinanceiro
+              totalParticipantes={cartelas.filter((c) => !NOMES_IA.includes(c.participante)).length}
+              valorAposta={valorAposta}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 14,
+              }}
+            >
+              <div style={{ color: "#F0F4FF", fontWeight: 800, fontSize: 16 }}>
+                Minhas Cartelas
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="file"
+                  accept=".html"
+                  id="importCartelaInput"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onImportarCartela(file);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  onClick={() => document.getElementById("importCartelaInput").click()}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid #1E2A45",
+                    borderRadius: 8,
+                    color: "#8B9CC8",
+                    padding: "8px 12px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {"\uD83D\uDCC2"} Importar
+                </button>
+                <Btn onClick={onNovaCartela} cor="#16a34a" style={{ padding: "8px 16px", fontSize: 13 }}>
+                  + Nova
+                </Btn>
+              </div>
             </div>
-          </Card>
+
+            {minhas.length === 0 && (
+              <Card>
+                <div style={{ textAlign: "center", color: "#8B9CC8", padding: 20 }}>
+                  Você ainda não tem cartelas. Clique em + Nova para criar!
+                </div>
+              </Card>
+            )}
+
+            {minhas.map((c) => {
+              const preenchidos = Object.keys(c.palpites || {}).filter(
+                (k) => k !== "__campeo"
+              ).length;
+              return (
+                <div
+                  key={c.id}
+                  onClick={() => onVerCartela(c)}
+                  style={{
+                    background: "#111827",
+                    border: "1px solid #1E2A45",
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 10,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 28 }}>
+                      {c.status === "validada"
+                        ? "\u2705"
+                        : c.status === "rejeitada"
+                          ? "\u274C"
+                          : "\u23F3"}
+                    </div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>
+                      {c.nome || "Cartela"}
+                    </div>
+                    <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>
+                      {preenchidos}/{JOGOS_TODOS.length} palpites {"·"} Campeão:{" "}
+                      {c.campeao || "—"}
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      <StatusBadge status={c.status} />
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPrintCartela(c);
+                    }}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#8B9CC8",
+                      fontSize: 16,
+                      cursor: "pointer",
+                      padding: "4px",
+                    }}
+                  >
+                    {"\uD83D\uDDA8\uFE0F"}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDelete(c);
+                    }}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#C8102E",
+                      fontSize: 18,
+                      cursor: "pointer",
+                      padding: "4px",
+                    }}
+                  >
+                    {"\uD83D\uDDD1\uFE0F"}
+                  </button>
+                </div>
+              );
+            })}
+          </>
         )}
 
         {confirmDelete && (
@@ -251,82 +378,6 @@ export default function MinhasCartelas({
             onCancel={() => setConfirmConta(false)}
           />
         )}
-        {minhas.map((c) => {
-          const preenchidos = Object.keys(c.palpites || {}).filter(
-            (k) => k !== "__campeo"
-          ).length;
-          return (
-            <div
-              key={c.id}
-              onClick={() => onVerCartela(c)}
-              style={{
-                background: "#111827",
-                border: "1px solid #1E2A45",
-                borderRadius: 12,
-                padding: 16,
-                marginBottom: 10,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 28 }}>
-                  {c.status === "validada"
-                    ? "\u2705"
-                    : c.status === "rejeitada"
-                      ? "\u274C"
-                      : "\u23F3"}
-                </div>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>
-                  {c.nome || "Cartela"}
-                </div>
-                <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>
-                  {preenchidos}/{JOGOS_TODOS.length} palpites {"·"} Campeão:{" "}
-                  {c.campeao || "—"}
-                </div>
-                <div style={{ marginTop: 4 }}>
-                  <StatusBadge status={c.status} />
-                </div>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPrintCartela(c);
-                }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "#8B9CC8",
-                  fontSize: 16,
-                  cursor: "pointer",
-                  padding: "4px",
-                }}
-              >
-                {"\uD83D\uDDA8\uFE0F"}
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setConfirmDelete(c);
-                }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "#C8102E",
-                  fontSize: 18,
-                  cursor: "pointer",
-                  padding: "4px",
-                }}
-              >
-                {"\uD83D\uDDD1\uFE0F"}
-              </button>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
