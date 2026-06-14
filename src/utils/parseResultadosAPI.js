@@ -51,8 +51,12 @@ export function parseResultadosDeAPI(matches) {
 }
 
 export async function fetchResultadosDeURL(url) {
+  console.log("Buscando:", url);
   const res = await fetch(url, { mode: "cors" });
-  if (!res.ok) throw new Error(`API retornou HTTP ${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`URL:\n${url}\nHTTP ${res.status} ${res.statusText}\n${text.slice(0, 200)}`);
+  }
   const data = await res.json();
   const arr = Array.isArray(data) ? data : data.matches || data.data || data.results || [];
   console.log(`API: ${arr.length} partidas recebidas`);

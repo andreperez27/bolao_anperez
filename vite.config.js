@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icons/*.png", "favicon.ico"],
+      includeAssets: ["icons/*.png"],
       manifest: {
         name: "Bolão da Copa 2026",
         short_name: "Bolão 2026",
