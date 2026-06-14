@@ -1,7 +1,7 @@
 import { supabaseFetch, supabaseHeaders, SUPABASE_URL } from "./supabase";
 
 export async function listCartelas(grupoId) {
-  let url = "/rest/v1/cartelas?select=*&order=created_at.desc";
+  let url = "/rest/v1/cartelas?select=*&deleted_at=is.null&order=created_at.desc";
   if (grupoId) url += "&grupo_id=eq." + encodeURIComponent(grupoId);
   const res = await supabaseFetch(url);
   if (!res.ok) throw new Error("Erro ao carregar cartelas");
@@ -34,9 +34,34 @@ export async function salvarCartela(cartela) {
 
 export async function deletarCartela(cartelaId) {
   const res = await supabaseFetch("/rest/v1/cartelas?id=eq." + encodeURIComponent(cartelaId), {
-    method: "DELETE",
+    method: "PATCH",
+    body: JSON.stringify({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
   });
   if (!res.ok) throw new Error("Erro ao excluir cartela");
+}
+
+export async function restaurarCartela(cartelaId) {
+  const res = await supabaseFetch("/rest/v1/cartelas?id=eq." + encodeURIComponent(cartelaId), {
+    method: "PATCH",
+    body: JSON.stringify({ deleted_at: null, updated_at: new Date().toISOString() }),
+  });
+  if (!res.ok) throw new Error("Erro ao restaurar cartela");
+}
+
+export async function listarCartelasExcluidas(grupoId) {
+  let url = "/rest/v1/cartelas?select=*&deleted_at=not.is.null&order=deleted_at.desc";
+  if (grupoId) url += "&grupo_id=eq." + encodeURIComponent(grupoId);
+  const res = await supabaseFetch(url);
+  if (!res.ok) throw new Error("Erro ao carregar lixeira");
+  return await res.json() || [];
+}
+
+export async function excluirCartelaDefinitivo(cartelaId) {
+  const res = await supabaseFetch("/rest/v1/rpc/excluir_cartela_definitivo", {
+    method: "POST",
+    body: JSON.stringify({ cartela_id: cartelaId }),
+  });
+  if (!res.ok) throw new Error("Erro ao excluir permanentemente");
 }
 
 export async function validarCartela(cartelaId, status) {

@@ -112,25 +112,46 @@ export default function App() {
       try {
         const text = await file.text();
         const { parseCartelaHTML } = await import("./services/importarCartela");
-        const dados = parseCartelaHTML(text);
+        const nomePart = jogador?.nome || user?.nome || "";
+        const dados = parseCartelaHTML(text, nomePart);
+        const msgErros = dados.erros?.length ? dados.erros.join("\n") : "";
+
         if (Object.keys(dados.palpites).length === 0) {
-          alert("Nenhum palpite encontrado no arquivo.");
+          alert("Nenhum palpite válido encontrado no arquivo." + (msgErros ? "\n\n" + msgErros : ""));
           return;
         }
+
+        const existingCartela = cartelas.find((c) => c.participante === nomePart);
+        const palpitesMergeados = { ...dados.palpites };
+        if (existingCartela?.palpites) {
+          Object.keys(existingCartela.palpites).forEach((key) => {
+            if (existingCartela.palpites[key]?.gols_a !== undefined) {
+              delete palpitesMergeados[key];
+            }
+          });
+        }
+        const palpitesFinais = { ...(existingCartela?.palpites || {}), ...palpitesMergeados };
+
         await salvarCartelaHook({
-          id: "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
-          nome: "Importada",
-          palpites: dados.palpites,
-          campeao: dados.campeao || "",
-          campeao_fase: dados.campeao_fase || "grupos",
-          participante: dados.participante || jogador?.nome || user?.nome,
+          id: existingCartela?.id || "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+          nome: existingCartela?.nome || "Importada",
+          palpites: palpitesFinais,
+          campeao: dados.campeao || existingCartela?.campeao || "",
+          campeao_fase: dados.campeao_fase || existingCartela?.campeao_fase || "grupos",
+          participante: nomePart,
+          status: "aguardando",
         });
-        alert("Cartela importada com " + Object.keys(dados.palpites).length + " palpites!");
+
+        let msg = `Cartela importada com ${Object.keys(dados.palpites).length} palpite(s)!`;
+        if (existingCartela) msg += ` Mesclado com cartela existente (${Object.keys(palpitesMergeados).length} novo(s)).`;
+        if (dados.dataEmitido) msg += ` Data de exportação: ${dados.dataEmitido.toLocaleDateString("pt-BR")}.`;
+        if (msgErros) msg += `\n\nAvisos:\n${msgErros}`;
+        alert(msg);
       } catch (e) {
         alert("Erro ao importar: " + e.message);
       }
     },
-    [salvarCartelaHook, jogador, user]
+    [salvarCartelaHook, jogador, user, cartelas]
   );
 
   const handlePrintDone = useCallback(() => {

@@ -8,6 +8,33 @@ import { JOGOS_TODOS } from "../services/jogos";
 import { useAuth } from "../contexts/AuthContext";
 import { NOMES_IA } from "../services/ia";
 
+function ConfirmModal({ title, message, onConfirm, onCancel }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center",
+      background: "rgba(0,0,0,0.7)", backdropFilter: "blur(2px)",
+    }} onClick={onCancel}>
+      <div style={{
+        background: "#111827", border: "1px solid #1E2A45", borderRadius: 16, padding: 24, maxWidth: 400, width: "90%",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+      }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ color: "#F0F4FF", fontWeight: 800, fontSize: 18, marginBottom: 8 }}>{title}</div>
+        <div style={{ color: "#8B9CC8", fontSize: 14, lineHeight: 1.5, marginBottom: 20 }}>{message}</div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={{
+            background: "transparent", border: "1px solid #1E2A45", borderRadius: 8, color: "#8B9CC8",
+            padding: "10px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer",
+          }}>Cancelar</button>
+          <button onClick={onConfirm} style={{
+            background: "#C8102E", border: "none", borderRadius: 8, color: "#fff",
+            padding: "10px 20px", fontWeight: 700, fontSize: 13, cursor: "pointer",
+          }}>Confirmar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MinhasCartelas({
   cartelas,
   config,
@@ -25,6 +52,8 @@ export default function MinhasCartelas({
   onVerTabela,
 }) {
   const { jogador, user } = useAuth();
+  const [confirmDelete, setConfirmDelete] = React.useState(null);
+  const [confirmConta, setConfirmConta] = React.useState(false);
 
   useEffect(() => {
     if (onRefreshCartelas) onRefreshCartelas();
@@ -178,7 +207,7 @@ export default function MinhasCartelas({
             {"\u2190"} Sair
           </button>
           <button
-            onClick={() => { if (window.confirm("Tem certeza que deseja excluir sua conta? Todos os seus dados serão perdidos.")) onExcluirConta(); }}
+            onClick={() => setConfirmConta(true)}
             style={{
               flex: 1,
               background: "transparent",
@@ -203,6 +232,22 @@ export default function MinhasCartelas({
           </Card>
         )}
 
+        {confirmDelete && (
+          <ConfirmModal
+            title="Excluir cartela"
+            message={`Tem certeza que deseja excluir "${confirmDelete.nome || confirmDelete.id}"? A cartela pode ser restaurada pelo administrador.`}
+            onConfirm={() => { onExcluirCartela(confirmDelete.id); setConfirmDelete(null); }}
+            onCancel={() => setConfirmDelete(null)}
+          />
+        )}
+        {confirmConta && (
+          <ConfirmModal
+            title="Excluir conta"
+            message="Tem certeza que deseja excluir sua conta? Todos os seus dados serão perdidos."
+            onConfirm={() => { onExcluirConta(); setConfirmConta(false); }}
+            onCancel={() => setConfirmConta(false)}
+          />
+        )}
         {minhas.map((c) => {
           const preenchidos = Object.keys(c.palpites || {}).filter(
             (k) => k !== "__campeo"
@@ -263,9 +308,7 @@ export default function MinhasCartelas({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (window.confirm(`Excluir cartela "${c.nome || c.id}"? Essa ação não pode ser desfeita.`)) {
-                    onExcluirCartela(c.id);
-                  }
+                  setConfirmDelete(c);
                 }}
                 style={{
                   background: "transparent",

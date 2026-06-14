@@ -5,6 +5,7 @@ import { StatusBadge } from "./StatusBadge";
 import { JOGOS_TODOS, JOGOS_GRUPOS, TODOS_TIMES } from "../services/jogos";
 import { salvarAdminData, salvarConfig, getConfig } from "../services/admin";
 import { listJogadores, deletarJogador } from "../services/jogadores";
+import { listarCartelasExcluidas, restaurarCartela, excluirCartelaDefinitivo } from "../services/cartelas";
 import { useAuth } from "../contexts/AuthContext";
 import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
 
@@ -29,6 +30,8 @@ export function AdminPanel({
   const [msgBusca, setMsgBusca] = useState("");
   const [adminSenha, setAdminSenha] = useState("");
   const [bonusGeral, setBonusGeral] = useState(0);
+  const [cartelasExcluidas, setCartelasExcluidas] = useState([]);
+  const [carregandoLixeira, setCarregandoLixeira] = useState(false);
 
   useEffect(() => { setResultadosEdit(resultados || {}); }, [resultados]);
   useEffect(() => { setCampeoRealEdit(campeoReal || ""); }, [campeoReal]);
@@ -49,6 +52,17 @@ export function AdminPanel({
       setParticipantes([]);
     }
     setCarregandoPart(false);
+  }, []);
+
+  const carregarLixeira = useCallback(async () => {
+    setCarregandoLixeira(true);
+    try {
+      const data = await listarCartelasExcluidas();
+      setCartelasExcluidas(data || []);
+    } catch {
+      setCartelasExcluidas([]);
+    }
+    setCarregandoLixeira(false);
   }, []);
 
   const handleSalvarResultado = useCallback(
@@ -115,6 +129,7 @@ export function AdminPanel({
     { key: "resultados", label: "Resultados" },
     { key: "participantes", label: "Participantes" },
     { key: "config", label: "Config" },
+    { key: "lixeira", label: "\uD83D\uDDD1\uFE0F Lixeira" },
   ];
 
   return (
@@ -126,6 +141,7 @@ export function AdminPanel({
             onClick={() => {
               setAbaAdmin(tab.key);
               if (tab.key === "participantes") carregarParticipantes();
+              if (tab.key === "lixeira") carregarLixeira();
             }}
             style={{
               flex: 1,
@@ -473,6 +489,67 @@ export function AdminPanel({
           <Btn onClick={handleSalvarConfig} cor="#0033A0" style={{ width: "100%" }}>
             Salvar Configuração
           </Btn>
+        </Card>
+      )}
+
+      {abaAdmin === "lixeira" && (
+        <Card style={{ border: "2px solid #C8102E44" }}>
+          <div style={{ color: "#C8102E", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>
+            🗑️ Lixeira — Cartelas Excluídas
+          </div>
+          {carregandoLixeira ? (
+            <div style={{ color: "#8B9CC8", fontSize: 13, textAlign: "center", padding: 12 }}>
+              Carregando...
+            </div>
+          ) : cartelasExcluidas.length === 0 ? (
+            <div style={{ color: "#8B9CC8", fontSize: 13, textAlign: "center", padding: 12 }}>
+              Nenhuma cartela na lixeira.
+            </div>
+          ) : (
+            cartelasExcluidas.map((c) => (
+              <div key={c.id} style={{
+                background: "#0d1b2a", borderRadius: 8, padding: 12, marginBottom: 8,
+                display: "flex", alignItems: "center", gap: 12, opacity: 0.7,
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 14 }}>
+                    {c.participante} — {c.nome || "Cartela"}
+                  </div>
+                  <div style={{ color: "#8B9CC8", fontSize: 11 }}>
+                    {Object.keys(c.palpites || {}).length} palpites · Campeão: {c.campeao || "—"}
+                    {c.deleted_at && <> · Excluída em {new Date(c.deleted_at).toLocaleString("pt-BR")}</>}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    onClick={async () => {
+                      try { await restaurarCartela(c.id); carregarLixeira(); alert("Cartela restaurada!"); }
+                      catch (e) { alert("Erro: " + e.message); }
+                    }}
+                    style={{
+                      background: "#16a34a", border: "none", borderRadius: 6, color: "#fff",
+                      padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer",
+                    }}
+                  >
+                    Restaurar
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm(`Excluir permanentemente a cartela de "${c.participante}"?`)) return;
+                      try { await excluirCartelaDefinitivo(c.id); carregarLixeira(); alert("Cartela excluída permanentemente!"); }
+                      catch (e) { alert("Erro: " + e.message); }
+                    }}
+                    style={{
+                      background: "#C8102E", border: "none", borderRadius: 6, color: "#fff",
+                      padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer",
+                    }}
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </Card>
       )}
     </div>
