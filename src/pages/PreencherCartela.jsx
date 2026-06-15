@@ -18,6 +18,12 @@ import { listarCartelasIA } from "../services/ia";
 import SugestoesIA from "../components/SugestoesIA";
 import { useAuth } from "../contexts/AuthContext";
 
+const CORES_IA_BTN = {
+  "🤖 Gemini (Google)": { cor: "#4285F4", label: "Gemini" },
+  "🤖 ChatGPT (OpenAI)": { cor: "#10a37f", label: "ChatGPT" },
+  "🤖 Claude (Anthropic)": { cor: "#d97706", label: "Claude" },
+};
+
 export default function PreencherCartela({ cartela, resultados, config, onSalvar, onVoltar, onPrintCartela }) {
   const { jogador, user } = useAuth();
   const nomeUsuario = jogador?.nome || user?.nome || "";
@@ -28,10 +34,20 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
   const [campeao, setCampeao] = useState(cartela?.campeao || "");
   const [grupoAtivo, setGrupoAtivo] = useState("Grupo A");
   const [iaCartelas, setIaCartelas] = useState([]);
+  const [campeaoTravado, setCampeaoTravado] = useState(false);
 
   useEffect(() => {
     listarCartelasIA().then(setIaCartelas).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (cartela?.id && faseAtual !== "grupos" && faseAtual !== (cartela?.campeao_fase || "grupos")) {
+      setCampeaoTravado(true);
+    } else {
+      setCampeaoTravado(false);
+    }
+  }, [cartela?.id, cartela?.campeao_fase, faseAtual]);
+
   const faseAtual = getFaseAtual(resultados);
 
   const fasesParaMostrar = [
@@ -43,10 +59,43 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
 
   const isNew = !cartela?.id;
   const valorAposta = config?.valor_aposta || 20;
-  const pontosCampeao = pontosCampeaoPorFase(faseAtual);
+  const pontosCampeaoAtual = pontosCampeaoPorFase(cartela?.campeao_fase || faseAtual);
+  const pontosCampeaoSeMudar = pontosCampeaoPorFase(faseAtual);
 
   const handlePalpite = (jogoId, valor) => {
     setPalpites((prev) => ({ ...prev, [jogoId]: valor }));
+  };
+
+  const handleImportarIA = (iaCartela) => {
+    const iaPts = iaCartela.palpites || {};
+    const novos = {};
+    let count = 0;
+    for (const [jogoId, valor] of Object.entries(iaPts)) {
+      if (jogoId === "__campeo") continue;
+      const jogo = JOGOS_TODOS.find((j) => j.id === jogoId);
+      if (jogo && isJogoBloqueado(jogo)) continue;
+      novos[jogoId] = valor;
+      count++;
+    }
+    if (count === 0) {
+      alert("Nenhum palpite disponível para importar (todos os jogos já iniciaram).");
+      return;
+    }
+    setPalpites((prev) => ({ ...prev, ...novos }));
+    alert(`${count} palpite(s) importado(s) de ${iaCartela.participante}! Apenas jogos ainda não iniciados.`);
+  };
+
+  const handleUnlockCampeao = () => {
+    const ptsAtuais = pontosCampeaoAtual;
+    const ptsNovos = pontosCampeaoSeMudar;
+    const diff = ptsAtuais - ptsNovos;
+    if (!window.confirm(
+      `O campeão está travado porque a ${faseLabel} já começou.\n\n` +
+      `Pontos atuais: ${ptsAtuais} pts\n` +
+      `Se desbloquear e mudar: ${ptsNovos} pts (${diff > 0 ? `perda de ${diff}` : "mantém"} pts)\n\n` +
+      `Deseja desbloquear?`
+    )) return;
+    setCampeaoTravado(false);
   };
 
   const handleSalvar = () => {
@@ -58,12 +107,19 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
       }
     }
 
+    let novaCampeaoFase = cartela?.campeao_fase;
+    if (!novaCampeaoFase) {
+      novaCampeaoFase = campeao ? faseAtual : undefined;
+    } else if (campeao !== cartela?.campeao && campeaoTravado === false) {
+      novaCampeaoFase = faseAtual;
+    }
+
     onSalvar({
       ...cartela,
       nome: nomeCartela.trim() || "Cartela",
       palpites: palpitesFiltrados,
       campeao,
-      campeao_fase: cartela?.campeao_fase || (campeao ? faseAtual : undefined),
+      campeao_fase: novaCampeaoFase,
     });
   };
 
@@ -88,6 +144,13 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
   })();
 
   const totalPalpitados = Object.keys(palpites).filter((k) => k !== "__campeo").length;
+
+  const faseLabelParaExibir = (f) => f === "grupos" ? "Fase de Grupos"
+    : f === "1_16" ? "Segunda Rodada"
+    : f === "oitavas" ? "Oitavas"
+    : f === "quartas" ? "Quartas"
+    : f === "semi" ? "Semifinal"
+    : "Final";
 
   const faseLabel = faseAtual === "grupos" ? "Fase de Grupos"
     : faseAtual === "1_16" ? "Segunda Rodada"
@@ -209,32 +272,63 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
         </Card>
 
         <Card style={{ marginBottom: 14, border: "2px solid #FFD70044" }}>
-          <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14, marginBottom: 10 }}>
-            {"\uD83C\uDFC6"} Campeão +{pontosCampeao} pts ({faseLabel})
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span style={{ color: "#FFD700", fontWeight: 800, fontSize: 14 }}>
+              {"\uD83C\uDFC6"} Campeão +{pontosCampeaoAtual} pts
+            </span>
+            <span style={{ color: "#8B9CC8", fontSize: 12, fontWeight: 400 }}>
+              ({cartela?.campeao_fase ? `${pontosCampeaoPorFase(cartela.campeao_fase)} pts na ${faseLabelParaExibir(cartela.campeao_fase)}` : faseLabel})
+            </span>
+            {campeaoTravado && isDono && (
+              <button
+                onClick={handleUnlockCampeao}
+                title="Clique para desbloquear (reduz pontos)"
+                style={{
+                  background: "transparent",
+                  border: "1px solid #FFD70044",
+                  borderRadius: 6,
+                  color: "#FFD700",
+                  fontSize: 16,
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                  marginLeft: "auto",
+                }}
+              >
+                {"\uD83D\uDD12"}
+              </button>
+            )}
           </div>
-          <select
-            value={campeao}
-            onChange={(e) => setCampeao(e.target.value)}
-            disabled={!isDono}
-            style={{
-              width: "100%",
-              background: "#1a2234",
-              border: `2px solid ${campeao ? "#FFD700" : "#1E2A45"}`,
-              borderRadius: 8,
-              color: campeao ? "#FFD700" : "#8B9CC8",
-              padding: "10px 12px",
-              fontSize: 15,
-              fontWeight: campeao ? 700 : 400,
-              cursor: "pointer",
-            }}
-          >
-            <option value="">Selecione o campeão...</option>
-            {TODOS_TIMES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <select
+              value={campeao}
+              onChange={(e) => setCampeao(e.target.value)}
+              disabled={!isDono || campeaoTravado}
+              style={{
+                flex: 1,
+                background: "#1a2234",
+                border: `2px solid ${campeaoTravado ? "#C8102E" : campeao ? "#FFD700" : "#1E2A45"}`,
+                borderRadius: 8,
+                color: campeaoTravado ? "#C8102E" : campeao ? "#FFD700" : "#8B9CC8",
+                padding: "10px 12px",
+                fontSize: 15,
+                fontWeight: campeao ? 700 : 400,
+                cursor: campeaoTravado ? "not-allowed" : "pointer",
+                opacity: campeaoTravado ? 0.6 : 1,
+              }}
+            >
+              <option value="">Selecione o campeão...</option>
+              {TODOS_TIMES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          {campeaoTravado && (
+            <div style={{ color: "#C8102E", fontSize: 11, marginTop: 6, textAlign: "center" }}>
+              {"\uD83D\uDD12"} Travado — {faseLabel} já começou. Clique no cadeado para desbloquear (pontos caem para {pontosCampeaoSeMudar} pts).
+            </div>
+          )}
         </Card>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
@@ -271,6 +365,40 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
         >
           {grupoAtivo.toUpperCase()}
         </div>
+
+        {isDono && iaCartelas.length > 0 && (
+          <Card style={{ marginBottom: 14, border: "1px solid #4285F444" }}>
+            <div style={{ color: "#8B9CC8", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>
+              {"\uD83D\uDCA1"} Importar palpites das IAs
+            </div>
+            <div style={{ color: "#8B9CC8", fontSize: 11, marginBottom: 10 }}>
+              Copia apenas palpites de jogos ainda não iniciados.
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {iaCartelas.map((ia) => {
+                const c = CORES_IA_BTN[ia.participante] || { cor: "#8B9CC8", label: "IA" };
+                return (
+                  <button
+                    key={ia.participante}
+                    onClick={() => handleImportarIA(ia)}
+                    style={{
+                      background: c.cor + "22",
+                      border: "1px solid " + c.cor + "66",
+                      borderRadius: 8,
+                      color: c.cor,
+                      padding: "8px 16px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {"\u2B07"} {c.label}
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+        )}
 
         {jogosPorGrupo(grupoAtivo).map((jogo) => (
           <div key={jogo.id}>
