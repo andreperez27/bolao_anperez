@@ -19,7 +19,7 @@ import { OfflineBanner } from "./components/OfflineBanner";
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, jogador, isAdmin, grupoAtivo, signOut, refreshJogador, refreshUser } = useAuth();
+  const { user, jogador, isAdmin, isGroupAdmin, grupoAtivo, signOut, refreshJogador, refreshUser } = useAuth();
   const grupoId = grupoAtivo?.id || '00000000-0000-0000-0000-000000000000';
   const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas(grupoId);
   const { resultados, campeoReal, config, updateResultados, loadData, ultimaAtualizacao } = useRanking();
@@ -206,18 +206,19 @@ export default function App() {
           path="/ranking"
           element={
             <RankingPage
-              cartelas={atualCartelas}
+              cartelas={cartelas}
               resultados={resultados}
               campeoReal={campeoReal}
-              isAdmin={isAdmin}
               config={config}
+              isAdmin={isAdmin}
+              isGroupAdmin={isGroupAdmin}
               ultimaAtualizacao={ultimaAtualizacao}
-              onVoltar={() => navigate(user ? "/minhas-cartelas" : "/login")}
-              onValidarCartela={handleValidarCartela}
+              onVoltar={() => navigate("/minhas-cartelas")}
+              onValidarCartela={validar}
               onResultadosChange={handleResultadosChange}
               onShowInstrucoes={() => setShowInstrucoes(true)}
               onVerTabela={() => navigate("/tabela")}
-              onVerCartela={(c) => { setCartelaEditando(c); navigate("/preencher-cartela"); }}
+              onVerCartela={handleVerCartela}
             />
           }
         />

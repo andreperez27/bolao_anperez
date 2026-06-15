@@ -107,6 +107,7 @@ export default function Ranking({
   resultados,
   campeoReal,
   isAdmin,
+  isGroupAdmin,
   config,
   ultimaAtualizacao,
   onVoltar,

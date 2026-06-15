@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback, useContext } from "react";
+import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from "react";
 import { getSession, limparSession } from "../services/auth";
 import { getJogador } from "../services/jogadores";
 import { listarGrupos } from "../services/grupos";
@@ -88,12 +88,15 @@ export function AuthProvider({ children }) {
     }
   }, [carregarGrupos]);
 
+  const isGroupAdmin = useMemo(() => !isAdmin && (meusGrupos || []).some(g => g.role === 'admin'), [isAdmin, meusGrupos]);
+
   return (
     <AuthContext.Provider
       value={{
         user,
         jogador,
         isAdmin,
+        isGroupAdmin,
         loading,
         meusGrupos,
         grupoAtivo,

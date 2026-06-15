@@ -18,7 +18,7 @@ export function AdminPanel({
   onResultadosChange,
   ultimaAtualizacao,
 }) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isGroupAdmin } = useAuth();
   const [abaAdmin, setAbaAdmin] = useState("validar");
   const [resultadosEdit, setResultadosEdit] = useState(resultados || {});
   const [campeoRealEdit, setCampeoRealEdit] = useState(campeoReal || "");
@@ -221,14 +221,14 @@ export function AdminPanel({
     boxSizing: "border-box",
   };
 
-  if (!isAdmin) return null;
+  if (!isAdmin && !isGroupAdmin) return null;
 
   const tabs = [
     { key: "validar", label: "Validar" },
     { key: "resultados", label: "Resultados" },
     { key: "participantes", label: "Participantes" },
-    { key: "grupos", label: "Grupos" },
-    { key: "config", label: "Config" },
+    ...(isAdmin ? [{ key: "grupos", label: "Grupos" }] : []),
+    ...(isAdmin ? [{ key: "config", label: "Config" }] : []),
     { key: "lixeira", label: "\uD83D\uDDD1\uFE0F Lixeira" },
   ];
 
@@ -498,7 +498,7 @@ export function AdminPanel({
         </Card>
       )}
 
-      {abaAdmin === "grupos" && (
+      {isAdmin && abaAdmin === "grupos" && (
         <Card style={{ border: "2px solid #FFD70044" }}>
           <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>
             Gestão de Grupos
