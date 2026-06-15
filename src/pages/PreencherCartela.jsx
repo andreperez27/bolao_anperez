@@ -81,8 +81,19 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
       alert("Nenhum palpite disponível para importar (todos os jogos já iniciaram).");
       return;
     }
-    setPalpites((prev) => ({ ...prev, ...novos }));
-    alert(`${count} palpite(s) importado(s) de ${iaCartela.participante}! Apenas jogos ainda não iniciados.`);
+    const campeaoIA = iaCartela.campeao || "";
+    setPalpites(novos);
+    setCampeao(campeaoIA);
+    if (!window.confirm(
+      `Criar nova cartela baseada em ${iaCartela.participante} com ${count} palpites?\n\n` +
+      `Isso substituirá qualquer edição não salva no formulário.`
+    )) return;
+    onSalvar({
+      nome: `${nomeCartela || nomeUsuario} (IA ${iaCartela.participante.split(" ")[1]})`,
+      palpites: novos,
+      campeao: campeaoIA,
+      campeao_fase: campeaoIA ? faseAtual : undefined,
+    });
   };
 
   const handleUnlockCampeao = () => {
