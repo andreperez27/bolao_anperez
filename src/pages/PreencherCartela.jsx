@@ -36,6 +36,8 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
   const [iaCartelas, setIaCartelas] = useState([]);
   const [campeaoTravado, setCampeaoTravado] = useState(false);
 
+  const faseAtual = getFaseAtual(resultados);
+
   useEffect(() => {
     listarCartelasIA().then(setIaCartelas).catch(() => {});
   }, []);
@@ -47,8 +49,6 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
       setCampeaoTravado(false);
     }
   }, [cartela?.id, cartela?.campeao_fase, faseAtual]);
-
-  const faseAtual = getFaseAtual(resultados);
 
   const fasesParaMostrar = [
     "Grupo A","Grupo B","Grupo C","Grupo D",
