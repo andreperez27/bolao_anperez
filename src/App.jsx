@@ -20,7 +20,8 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, jogador, isAdmin, grupoAtivo, signOut, refreshJogador, refreshUser } = useAuth();
-  const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas(grupoAtivo?.id);
+  const grupoId = grupoAtivo?.id || '00000000-0000-0000-0000-000000000000';
+  const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas(grupoId);
   const { resultados, campeoReal, config, updateResultados, loadData, ultimaAtualizacao } = useRanking();
 
   const [cartelaEditando, setCartelaEditando] = useState(null);
