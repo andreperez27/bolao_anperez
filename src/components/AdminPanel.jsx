@@ -7,6 +7,7 @@ import { salvarAdminData, salvarConfig, getConfig } from "../services/admin";
 import { listJogadores, deletarJogador } from "../services/jogadores";
 import { listarCartelasExcluidas, restaurarCartela, excluirCartelaDefinitivo } from "../services/cartelas";
 import { listarTodosGrupos, criarGrupo, listarMembros, removerMembro, atualizarGrupo } from "../services/grupos";
+import { supabaseFetch, supabaseHeaders } from "../services/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
 
@@ -18,7 +19,7 @@ export function AdminPanel({
   onResultadosChange,
   ultimaAtualizacao,
 }) {
-  const { isAdmin, isGroupAdmin } = useAuth();
+  const { isAdmin, isGroupAdmin, grupoAtivo, user } = useAuth();
   const [abaAdmin, setAbaAdmin] = useState("validar");
   const [resultadosEdit, setResultadosEdit] = useState(resultados || {});
   const [campeoRealEdit, setCampeoRealEdit] = useState(campeoReal || "");
@@ -43,6 +44,21 @@ export function AdminPanel({
   const [grupoMembrosAberto, setGrupoMembrosAberto] = useState(null);
   const [membrosGrupo, setMembrosGrupo] = useState([]);
   const [grupoEditando, setGrupoEditando] = useState(null);
+  const [conviteNome, setConviteNome] = useState("");
+  const [msgConvite, setMsgConvite] = useState("");
+  const [convidando, setConvidando] = useState(false);
+  const [membros, setMembros] = useState([]);
+
+  useEffect(() => {
+    if (!isGroupAdmin || !grupoAtivo?.id) return;
+    let ativo = true;
+    import("../services/grupos").then(({ listarMembros }) => {
+      listarMembros(grupoAtivo.id).then((data) => {
+        if (ativo) setMembros(data || []);
+      }).catch(() => { if (ativo) setMembros([]); });
+    });
+    return () => { ativo = false; };
+  }, [isGroupAdmin, grupoAtivo?.id]);
 
   useEffect(() => { setResultadosEdit(resultados || {}); }, [resultados]);
   useEffect(() => { setCampeoRealEdit(campeoReal || ""); }, [campeoReal]);
@@ -204,6 +220,47 @@ export function AdminPanel({
       await removerMembro(g.id, g.admin_nome || g.admin, nome);
       const data = await listarMembros(g.id);
       setMembrosGrupo(data || []);
+    } catch (e) {
+      alert("Erro ao remover: " + e.message);
+    }
+  };
+
+  const handleConvidar = async () => {
+    if (!conviteNome || !grupoAtivo?.id) return;
+    setConvidando(true);
+    setMsgConvite("");
+    try {
+      const { supabaseFetch, supabaseHeaders } = await import("../services/supabase");
+      const res = await supabaseFetch("/rest/v1/membros_grupo", {
+        method: "POST",
+        headers: { ...supabaseHeaders, Prefer: "resolution=merge-duplicates" },
+        body: JSON.stringify({
+          grupo_id: grupoAtivo.id,
+          usuario_id: conviteNome.trim(),
+          role: "participante",
+        }),
+      });
+      if (!res.ok && res.status !== 201) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt.slice(0, 200));
+      }
+      setMsgConvite(`${conviteNome.trim()} adicionado ao grupo!`);
+      setConviteNome("");
+      const data = await listarMembros(grupoAtivo.id);
+      setMembros(data || []);
+    } catch (e) {
+      setMsgConvite("Erro: " + e.message);
+    }
+    setConvidando(false);
+  };
+
+  const handleRemoverMembroGrupo = async (m) => {
+    const nome = m.usuario_id || m.nome;
+    if (!window.confirm(`Remover "${nome}" do grupo?`)) return;
+    try {
+      await removerMembro(grupoAtivo.id, user?.nome || "", nome);
+      const data = await listarMembros(grupoAtivo.id);
+      setMembros(data || []);
     } catch (e) {
       alert("Erro ao remover: " + e.message);
     }
@@ -495,6 +552,57 @@ export function AdminPanel({
           >
             Total: {participantes.length} participante{participantes.length !== 1 ? "s" : ""}
           </div>
+        </Card>
+      )}
+
+      {isGroupAdmin && (
+        <Card style={{ border: "2px solid #10b98144" }}>
+          <div style={{ color: "#10b981", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>
+            Gerenciar Membros do Grupo
+          </div>
+          {msgConvite && (
+            <div style={{ color: msgConvite.startsWith("Erro") ? "#C8102E" : "#10b981", fontSize: 12, marginBottom: 8 }}>{msgConvite}</div>
+          )}
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <input
+              placeholder="Nome do jogador para convidar"
+              value={conviteNome}
+              onChange={(e) => setConviteNome(e.target.value)}
+              style={{
+                flex: 1, background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8,
+                color: "#F0F4FF", padding: "8px 10px", fontSize: 13, fontWeight: 500,
+              }}
+            />
+            <button
+              onClick={handleConvidar}
+              disabled={!conviteNome || convidando}
+              style={{
+                background: "#10b981", border: "none", borderRadius: 8, color: "#fff",
+                padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer",
+                opacity: !conviteNome || convidando ? 0.5 : 1,
+              }}
+            >
+              {convidando ? "..." : "Convidar"}
+            </button>
+          </div>
+          <div style={{ color: "#8B9CC8", fontSize: 11, marginBottom: 6 }}>Membros atuais:</div>
+          {membros.length === 0 ? (
+            <div style={{ color: "#8B9CC8", fontSize: 11 }}>Nenhum membro ainda.</div>
+          ) : (
+            membros.map((m, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #1E2A4520" }}>
+                <div>
+                  <span style={{ color: "#F0F4FF", fontSize: 13 }}>{m.usuario_id || m.nome}</span>
+                  <span style={{ color: "#8B9CC8", fontSize: 10, marginLeft: 6 }}>({m.role})</span>
+                </div>
+                {m.role !== "admin" && (
+                  <button onClick={() => handleRemoverMembroGrupo(m)} style={{ background: "transparent", border: "none", color: "#C8102E", cursor: "pointer", fontSize: 12 }}>
+                    Remover
+                  </button>
+                )}
+              </div>
+            ))
+          )}
         </Card>
       )}
 
