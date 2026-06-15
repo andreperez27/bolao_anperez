@@ -19,8 +19,8 @@ import { OfflineBanner } from "./components/OfflineBanner";
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, jogador, isAdmin, signOut, refreshJogador, refreshUser } = useAuth();
-  const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas();
+  const { user, jogador, isAdmin, grupoAtivo, signOut, refreshJogador, refreshUser } = useAuth();
+  const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas(grupoAtivo?.id);
   const { resultados, campeoReal, config, updateResultados, loadData, ultimaAtualizacao } = useRanking();
 
   const [cartelaEditando, setCartelaEditando] = useState(null);

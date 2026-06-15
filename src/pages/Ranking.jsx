@@ -7,6 +7,7 @@ import { AdminPanel } from "../components/AdminPanel";
 import { LegendaDesempate } from "../components/LegendaDesempate";
 import { calcularPontos, pontosCampeaoPorFase } from "../utils/pontuacao";
 import { NOMES_IA } from "../services/ia";
+import { GroupSelector } from "../components/GroupSelector";
 
 export default function Ranking({
   cartelas,
@@ -180,8 +181,11 @@ export default function Ranking({
             {"\u2753"}
           </button>
         </div>
-        <div style={{ color: "#000", fontSize: 22, fontWeight: 900 }}>
-          {"\uD83C\uDFC5"} Ranking do Bolão
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ color: "#000", fontSize: 22, fontWeight: 900 }}>
+            {"\uD83C\uDFC5"} Ranking do Bolão
+          </div>
+          <GroupSelector />
         </div>
         <div style={{ color: "rgba(0,0,0,0.6)", fontSize: 13 }}>
           {new Set(cartelas.filter((c) => !NOMES_IA.includes(c.participante)).map((c) => c.participante)).size} participantes, {cartelas.filter((c) => !NOMES_IA.includes(c.participante)).length} cartelas

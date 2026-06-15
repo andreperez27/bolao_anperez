@@ -6,6 +6,7 @@ import { JOGOS_TODOS, JOGOS_GRUPOS, TODOS_TIMES } from "../services/jogos";
 import { salvarAdminData, salvarConfig, getConfig } from "../services/admin";
 import { listJogadores, deletarJogador } from "../services/jogadores";
 import { listarCartelasExcluidas, restaurarCartela, excluirCartelaDefinitivo } from "../services/cartelas";
+import { listarTodosGrupos, criarGrupo, listarMembros, removerMembro, atualizarGrupo } from "../services/grupos";
 import { useAuth } from "../contexts/AuthContext";
 import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
 
@@ -32,6 +33,16 @@ export function AdminPanel({
   const [bonusGeral, setBonusGeral] = useState(0);
   const [cartelasExcluidas, setCartelasExcluidas] = useState([]);
   const [carregandoLixeira, setCarregandoLixeira] = useState(false);
+  const [gruposLista, setGruposLista] = useState([]);
+  const [carregandoGrupos, setCarregandoGrupos] = useState(false);
+  const [novoGrupoNome, setNovoGrupoNome] = useState("");
+  const [novoGrupoSlug, setNovoGrupoSlug] = useState("");
+  const [novoGrupoAdmin, setNovoGrupoAdmin] = useState("");
+  const [novoGrupoValor, setNovoGrupoValor] = useState(20);
+  const [msgGrupo, setMsgGrupo] = useState("");
+  const [grupoMembrosAberto, setGrupoMembrosAberto] = useState(null);
+  const [membrosGrupo, setMembrosGrupo] = useState([]);
+  const [grupoEditando, setGrupoEditando] = useState(null);
 
   useEffect(() => { setResultadosEdit(resultados || {}); }, [resultados]);
   useEffect(() => { setCampeoRealEdit(campeoReal || ""); }, [campeoReal]);
@@ -122,12 +133,101 @@ export function AdminPanel({
     }
   };
 
+  const carregarGrupos = useCallback(async () => {
+    setCarregandoGrupos(true);
+    try {
+      const data = await listarTodosGrupos();
+      setGruposLista(data || []);
+    } catch {
+      setGruposLista([]);
+    }
+    setCarregandoGrupos(false);
+  }, []);
+
+  const handleCriarGrupo = async () => {
+    if (!novoGrupoNome || !novoGrupoSlug || !novoGrupoAdmin) {
+      setMsgGrupo("Preencha nome, slug e admin.");
+      return;
+    }
+    try {
+      await criarGrupo(novoGrupoNome, novoGrupoSlug, novoGrupoAdmin, novoGrupoValor);
+      setMsgGrupo("Grupo criado com sucesso!");
+      setNovoGrupoNome("");
+      setNovoGrupoSlug("");
+      setNovoGrupoAdmin("");
+      setNovoGrupoValor(20);
+      carregarGrupos();
+    } catch (e) {
+      setMsgGrupo("Erro: " + e.message);
+    }
+  };
+
+  const toggleMembros = async (g) => {
+    if (grupoMembrosAberto === g.id) {
+      setGrupoMembrosAberto(null);
+      setMembrosGrupo([]);
+    } else {
+      try {
+        const data = await listarMembros(g.id);
+        setMembrosGrupo(data || []);
+        setGrupoMembrosAberto(g.id);
+      } catch {
+        setMembrosGrupo([]);
+      }
+    }
+  };
+
+  const abrirEditarGrupo = (g) => {
+    setGrupoEditando(grupoEditando?.id === g.id ? null : {
+      id: g.id,
+      valor_aposta: g.valor_aposta || 20,
+      pontos_cheio: g.pontos_cheio || 5,
+      pontos_vencedor: g.pontos_vencedor || 3,
+    });
+  };
+
+  const handleSalvarEdicaoGrupo = async (g) => {
+    try {
+      await atualizarGrupo(g.id, g.admin_nome || g.admin, grupoEditando);
+      alert("Grupo atualizado!");
+      setGrupoEditando(null);
+      carregarGrupos();
+    } catch (e) {
+      alert("Erro: " + e.message);
+    }
+  };
+
+  const handleRemoverMembro = async (g, membro) => {
+    const nome = typeof membro === "string" ? membro : membro.usuario_id || membro.nome;
+    if (!window.confirm(`Remover "${nome}" do grupo?`)) return;
+    try {
+      await removerMembro(g.id, g.admin_nome || g.admin, nome);
+      const data = await listarMembros(g.id);
+      setMembrosGrupo(data || []);
+    } catch (e) {
+      alert("Erro ao remover: " + e.message);
+    }
+  };
+
+  const inputStyle = {
+    width: "100%",
+    background: "#1a2234",
+    border: "2px solid #1E2A45",
+    borderRadius: 8,
+    color: "#F0F4FF",
+    padding: "10px 12px",
+    fontSize: 14,
+    fontWeight: 500,
+    boxSizing: "border-box",
+  };
+
   if (!isAdmin) return null;
 
   const tabs = [
     { key: "validar", label: "Validar" },
     { key: "resultados", label: "Resultados" },
     { key: "participantes", label: "Participantes" },
+    { key: "grupos", label: "Grupos" },
     { key: "config", label: "Config" },
     { key: "lixeira", label: "\uD83D\uDDD1\uFE0F Lixeira" },
   ];
@@ -394,6 +494,94 @@ export function AdminPanel({
             }}
           >
             Total: {participantes.length} participante{participantes.length !== 1 ? "s" : ""}
+          </div>
+        </Card>
+      )}
+
+      {abaAdmin === "grupos" && (
+        <Card style={{ border: "2px solid #FFD70044" }}>
+          <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>
+            Gestão de Grupos
+          </div>
+
+          {msgGrupo && (
+            <div style={{ color: "#10b981", fontSize: 12, marginBottom: 8 }}>{msgGrupo}</div>
+          )}
+
+          {isAdmin && (
+            <>
+              <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 8, marginTop: 12 }}>
+                Criar Novo Grupo
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <input placeholder="Nome do grupo" value={novoGrupoNome} onChange={(e) => setNovoGrupoNome(e.target.value)} style={inputStyle} />
+                <input placeholder="Slug (ex: familia)" value={novoGrupoSlug} onChange={(e) => setNovoGrupoSlug(e.target.value)} style={inputStyle} />
+                <input placeholder="Admin (nome do jogador)" value={novoGrupoAdmin} onChange={(e) => setNovoGrupoAdmin(e.target.value)} style={inputStyle} />
+                <input type="number" placeholder="Valor aposta (R$)" value={novoGrupoValor} onChange={(e) => setNovoGrupoValor(Number(e.target.value))} style={inputStyle} />
+                <Btn onClick={handleCriarGrupo}>Criar Grupo</Btn>
+              </div>
+            </>
+          )}
+
+          <div style={{ marginTop: 16 }}>
+            <Btn onClick={carregarGrupos} style={{ marginBottom: 8 }}>
+              {carregandoGrupos ? "Carregando..." : "Atualizar Lista"}
+            </Btn>
+
+            {gruposLista.length === 0 && !carregandoGrupos && (
+              <div style={{ color: "#8B9CC8", fontSize: 12, padding: 8 }}>Nenhum grupo encontrado.</div>
+            )}
+
+            {gruposLista.map((g) => (
+              <div key={g.id} style={{ background: "#1a2234", borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <span style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 14 }}>{g.nome}</span>
+                    <span style={{ color: "#8B9CC8", fontSize: 11, marginLeft: 8 }}>/{g.slug}</span>
+                  </div>
+                  {isAdmin && (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => abrirEditarGrupo(g)} style={{ background: "transparent", border: "none", color: "#1a4fd6", cursor: "pointer", fontSize: 13 }}>
+                        Editar
+                      </button>
+                      <button onClick={() => toggleMembros(g)} style={{ background: "transparent", border: "none", color: "#10b981", cursor: "pointer", fontSize: 13 }}>
+                        Membros
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div style={{ color: "#8B9CC8", fontSize: 11, marginTop: 4 }}>
+                  Admin: {g.admin_nome || g.admin} | Valor: R$ {g.valor_aposta} | {g.qtde_membros || "?"} membros
+                </div>
+
+                {grupoEditando && grupoEditando.id === g.id && (
+                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <input type="number" placeholder="Valor aposta" value={grupoEditando.valor_aposta} onChange={(e) => setGrupoEditando({ ...grupoEditando, valor_aposta: e.target.value })} style={inputStyle} />
+                    <input type="number" placeholder="pts cheio" value={grupoEditando.pontos_cheio || 5} onChange={(e) => setGrupoEditando({ ...grupoEditando, pontos_cheio: e.target.value })} style={inputStyle} />
+                    <input type="number" placeholder="pts vencedor" value={grupoEditando.pontos_vencedor || 3} onChange={(e) => setGrupoEditando({ ...grupoEditando, pontos_vencedor: e.target.value })} style={inputStyle} />
+                    <Btn onClick={() => handleSalvarEdicaoGrupo(g)}>Salvar</Btn>
+                  </div>
+                )}
+
+                {grupoMembrosAberto === g.id && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ color: "#8B9CC8", fontSize: 11, marginBottom: 4 }}>Membros ({membrosGrupo.length}):</div>
+                    {membrosGrupo.length === 0 ? (
+                      <div style={{ color: "#8B9CC8", fontSize: 11 }}>Nenhum membro.</div>
+                    ) : (
+                      membrosGrupo.map((m, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid #1E2A4520" }}>
+                          <span style={{ color: "#F0F4FF", fontSize: 13 }}>{typeof m === "string" ? m : m.usuario_id || m.nome}</span>
+                          <button onClick={() => handleRemoverMembro(g, m)} style={{ background: "transparent", border: "none", color: "#C8102E", cursor: "pointer", fontSize: 12 }}>
+                            Remover
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </Card>
       )}

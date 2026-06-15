@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  base: "/bolao-copa-2026/",
+  base: "/bolao_anperez/",
   plugins: [
     react(),
     VitePWA({
@@ -17,8 +17,8 @@ export default defineConfig({
         background_color: "#0A0E1A",
         display: "standalone",
         orientation: "portrait",
-        start_url: "/bolao-copa-2026/",
-        scope: "/bolao-copa-2026/",
+        start_url: "/bolao_anperez/",
+        scope: "/bolao_anperez/",
         icons: [
           { src: "icons/192.png", sizes: "192x192", type: "image/png" },
           { src: "icons/512.png", sizes: "512x512", type: "image/png" },
