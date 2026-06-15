@@ -143,6 +143,10 @@ export default function App() {
     [salvarCartelaHook, jogador, user]
   );
 
+  const handleVerCartela = useCallback((cartela) => {
+    setCartelaEditando(cartela);
+  }, []);
+
   const handlePrintDone = useCallback(() => {
     setCartelaPrint(null);
   }, []);
