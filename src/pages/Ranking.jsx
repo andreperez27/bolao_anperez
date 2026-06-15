@@ -8,8 +8,11 @@ import { LegendaDesempate } from "../components/LegendaDesempate";
 import { calcularPontos, pontosCampeaoPorFase } from "../utils/pontuacao";
 import { NOMES_IA } from "../services/ia";
 import { GroupSelector } from "../components/GroupSelector";
+import { useAuth } from "../contexts/AuthContext";
+import { listarTodosGrupos, criarGrupo, listarMembros, removerMembro, atualizarGrupo, excluirGrupo } from "../services/grupos";
 
-function SuperAdminPainel() {
+function SuperAdminPainel({ onVoltar }) {
+  const { signOut } = useAuth();
   const [grupos, setGrupos] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [nome, setNome] = React.useState("");
@@ -19,50 +22,105 @@ function SuperAdminPainel() {
   const [msg, setMsg] = React.useState("");
   const [membrosAberto, setMembrosAberto] = React.useState(null);
   const [membros, setMembros] = React.useState([]);
+  const [editando, setEditando] = React.useState(null);
+  const [excluindo, setExcluindo] = React.useState(null);
 
   const carregar = React.useCallback(async () => {
+    const adminPass = prompt("Digite a senha de super admin:");
+    if (!adminPass) return;
     setLoading(true);
     try {
-      const { listarTodosGrupos } = await import("../services/grupos");
-      const data = await listarTodosGrupos();
+      const data = await listarTodosGrupos(adminPass);
       setGrupos(data || []);
-    } catch { setGrupos([]); }
+      setMsg("");
+    } catch (e) {
+      setMsg("Erro: " + e.message);
+      setGrupos([]);
+    }
     setLoading(false);
   }, []);
 
-  React.useEffect(() => { carregar(); }, [carregar]);
-
   const criar = async () => {
     if (!nome || !slug || !admin) { setMsg("Preencha nome, slug e admin."); return; }
+    const adminPass = prompt("Digite a senha de super admin para criar grupo:");
+    if (!adminPass) return;
     try {
-      const { criarGrupo } = await import("../services/grupos");
-      await criarGrupo(nome, slug, admin, valor);
-      setMsg("Grupo criado!");
+      const res = await criarGrupo(nome, slug, admin, valor, adminPass);
+      if (res.aviso) {
+        setMsg(res.aviso);
+      } else {
+        setMsg("Grupo criado!");
+      }
       setNome(""); setSlug(""); setAdmin(""); setValor(20);
       carregar();
     } catch (e) { setMsg("Erro: " + e.message); }
   };
 
   const inputStyle = { width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14, fontWeight: 500, boxSizing: "border-box" };
+  const btnStyle = { background: "transparent", border: "none", cursor: "pointer", fontSize: 13, padding: "4px 8px", borderRadius: 6 };
 
   const verMembros = async (g) => {
     if (membrosAberto === g.id) { setMembrosAberto(null); return; }
     try {
-      const { listarMembros } = await import("../services/grupos");
       const data = await listarMembros(g.id);
       setMembros(data || []);
       setMembrosAberto(g.id);
     } catch { setMembros([]); }
   };
 
+  const abrirEditar = (g) => {
+    setEditando(editando?.id === g.id ? null : {
+      id: g.id,
+      nome: g.nome,
+      slug: g.slug,
+      admin_nome: g.admin_nome || g.admin || "",
+      valor_aposta: g.valor_aposta || 20,
+      pontos_cheio: g.pontos_cheio || 5,
+      pontos_vencedor: g.pontos_vencedor || 3,
+    });
+  };
+
+  const salvarEdicao = async (g) => {
+    const adminPass = prompt("Digite a senha de super admin para salvar alterações:");
+    if (!adminPass) return;
+    try {
+      await atualizarGrupo(g.id, editando.admin_nome, editando, adminPass);
+      alert("Grupo atualizado!");
+      setEditando(null);
+      carregar();
+    } catch (e) { alert("Erro: " + e.message); }
+  };
+
+  const handleExcluir = async (g) => {
+    if (!window.confirm(`EXCLUIR PERMANENTEMENTE o grupo "${g.nome}"?\n\nIsso apaga: cartelas, membros e convites.\n\nNÃO pode ser desfeito.`)) return;
+    const adminPass = prompt("Digite a senha de super admin para confirmar exclusão:");
+    if (!adminPass) return;
+    setExcluindo(g.id);
+    try {
+      await excluirGrupo(g.id, adminPass);
+      alert(`Grupo "${g.nome}" excluído!`);
+      carregar();
+    } catch (e) { alert("Erro: " + e.message); }
+    setExcluindo(null);
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "#0A0E1A", paddingBottom: 60 }}>
       <div style={{ background: "linear-gradient(135deg, #0033A0, #001a66)", padding: "16px 20px 14px", borderBottom: "2px solid #FFD700" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <button onClick={onVoltar} style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+            {"\u2190"} Voltar
+          </button>
+          <button onClick={signOut} style={{ background: "#C8102E", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+            Sair
+          </button>
+        </div>
         <div style={{ color: "#FFD700", fontSize: 11, fontWeight: 700, letterSpacing: 2 }}>BOLÃO DA COPA 2026</div>
-        <div style={{ color: "#F0F4FF", fontSize: 20, fontWeight: 900, marginTop: 4 }}>Painel do Administrador</div>
+        <div style={{ color: "#F0F4FF", fontSize: 20, fontWeight: 900, marginTop: 4 }}>Painel do Super Administrador</div>
       </div>
       <div style={{ padding: "14px 16px 0", maxWidth: 600, margin: "0 auto" }}>
-        {msg && <div style={{ color: "#10b981", fontSize: 12, marginBottom: 8 }}>{msg}</div>}
+        {msg && <div style={{ color: msg.includes("Erro") ? "#C8102E" : "#10b981", fontSize: 12, marginBottom: 8 }}>{msg}</div>}
+
         <div style={{ background: "#111827", border: "1px solid #1E2A45", borderRadius: 12, padding: 16, marginBottom: 14 }}>
           <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>Criar Novo Grupo</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -77,16 +135,48 @@ function SuperAdminPainel() {
         <div style={{ background: "#111827", border: "1px solid #1E2A45", borderRadius: 12, padding: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14 }}>Grupos Existentes</div>
-            <button onClick={carregar} style={{ background: "transparent", border: "1px solid #1E2A45", borderRadius: 6, color: "#8B9CC8", padding: "6px 10px", fontSize: 11, cursor: "pointer" }}>Atualizar</button>
+            <button onClick={carregar} style={{ background: "transparent", border: "1px solid #1E2A45", borderRadius: 6, color: "#8B9CC8", padding: "6px 10px", fontSize: 11, cursor: "pointer" }}>{loading ? "..." : "Carregar"}</button>
           </div>
-          {loading ? <div style={{ color: "#8B9CC8", fontSize: 13, textAlign: "center", padding: 12 }}>Carregando...</div> : grupos.length === 0 ? <div style={{ color: "#8B9CC8", fontSize: 12, padding: 8 }}>Nenhum grupo criado.</div> : grupos.map(g => (
+          {grupos.length === 0 && !loading ? (
+            <div style={{ color: "#8B9CC8", fontSize: 12, padding: 8 }}>Clique em "Carregar" e digite a senha de admin.</div>
+          ) : grupos.map(g => (
             <div key={g.id} style={{ background: "#1a2234", borderRadius: 8, padding: 12, marginBottom: 8 }}>
-              <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 14 }}>{g.nome} <span style={{ color: "#8B9CC8", fontSize: 11 }}>/{g.slug}</span></div>
-              <div style={{ color: "#8B9CC8", fontSize: 11, marginTop: 4 }}>Admin: {g.admin_nome} | Valor: R$ {g.valor_aposta}</div>
-              <button onClick={() => verMembros(g)} style={{ background: "transparent", border: "none", color: "#10b981", cursor: "pointer", fontSize: 12, marginTop: 4 }}>Membros</button>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <span style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 14 }}>{g.nome}</span>
+                  <span style={{ color: "#8B9CC8", fontSize: 11, marginLeft: 8 }}>/{g.slug}</span>
+                </div>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <button onClick={() => abrirEditar(g)} style={{ ...btnStyle, color: "#1a4fd6" }}>Editar</button>
+                  <button onClick={() => handleExcluir(g)} style={{ ...btnStyle, color: "#C8102E" }}>{excluindo === g.id ? "..." : "Excluir"}</button>
+                  <button onClick={() => verMembros(g)} style={{ ...btnStyle, color: "#10b981" }}>Membros</button>
+                </div>
+              </div>
+              <div style={{ color: "#8B9CC8", fontSize: 11, marginTop: 4 }}>
+                Admin: {g.admin_nome || g.admin || "—"} | Valor: R$ {g.valor_aposta}
+              </div>
+
+              {editando && editando.id === g.id && (
+                <div style={{ marginTop: 10, padding: 10, background: "#0d1b2a", borderRadius: 8 }}>
+                  <div style={{ color: "#FFD700", fontSize: 11, marginBottom: 6 }}>Editar {g.nome}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <input type="number" placeholder="Valor aposta" value={editando.valor_aposta} onChange={e => setEditando({ ...editando, valor_aposta: Number(e.target.value) })} style={inputStyle} />
+                    <input type="number" placeholder="Pts acerto cheio" value={editando.pontos_cheio} onChange={e => setEditando({ ...editando, pontos_cheio: Number(e.target.value) })} style={inputStyle} />
+                    <input type="number" placeholder="Pts vencedor certo" value={editando.pontos_vencedor} onChange={e => setEditando({ ...editando, pontos_vencedor: Number(e.target.value) })} style={inputStyle} />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => salvarEdicao(g)} style={{ background: "#10b981", border: "none", borderRadius: 6, color: "#fff", padding: "8px", fontWeight: 700, fontSize: 12, cursor: "pointer", flex: 1 }}>Salvar</button>
+                      <button onClick={() => setEditando(null)} style={{ background: "#555", border: "none", borderRadius: 6, color: "#fff", padding: "8px", fontWeight: 700, fontSize: 12, cursor: "pointer", flex: 1 }}>Cancelar</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {membrosAberto === g.id && (
                 <div style={{ marginTop: 8 }}>
-                  {membros.length === 0 ? <div style={{ color: "#8B9CC8", fontSize: 11 }}>Nenhum membro.</div> : membros.map((m, i) => (
+                  <div style={{ color: "#8B9CC8", fontSize: 11, marginBottom: 4 }}>Membros ({membros.length}):</div>
+                  {membros.length === 0 ? (
+                    <div style={{ color: "#8B9CC8", fontSize: 11 }}>Nenhum membro.</div>
+                  ) : membros.map((m, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #1E2A4520" }}>
                       <span style={{ color: "#F0F4FF", fontSize: 13 }}>{m.usuario_id || m.nome}</span>
                       <span style={{ color: "#8B9CC8", fontSize: 11 }}>{m.role}</span>
@@ -117,7 +207,8 @@ export default function Ranking({
   onVerTabela,
   onVerCartela,
 }) {
-  if (isAdmin) return <SuperAdminPainel />;
+  if (isAdmin) return <SuperAdminPainel onVoltar={onVoltar} />;
+
   const medalhas = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"];
 
   const ranking = Object.values(
@@ -405,7 +496,7 @@ export default function Ranking({
                   {c.acertos}/{c.total} acertos{" "}
                   {c.placaresExatos > 0 && (
                     <span style={{ color: "#FFD700", fontWeight: 700 }}>
-                      · 🎯 {c.placaresExatos} exatos
+                      {" "}· 🎯 {c.placaresExatos} exatos
                     </span>
                   )}
                   {c.empatesPalpitados > 0 && (

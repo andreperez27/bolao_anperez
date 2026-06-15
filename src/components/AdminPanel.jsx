@@ -6,7 +6,7 @@ import { JOGOS_TODOS, JOGOS_GRUPOS, TODOS_TIMES } from "../services/jogos";
 import { salvarAdminData, salvarConfig, getConfig } from "../services/admin";
 import { listJogadores, deletarJogador } from "../services/jogadores";
 import { listarCartelasExcluidas, restaurarCartela, excluirCartelaDefinitivo } from "../services/cartelas";
-import { listarTodosGrupos, criarGrupo, listarMembros, removerMembro, atualizarGrupo } from "../services/grupos";
+import { listarTodosGrupos, criarGrupo, listarMembros, removerMembro, atualizarGrupo, gerarConvite, listarConvites, revogarConvite, excluirGrupo } from "../services/grupos";
 import { supabaseFetch, supabaseHeaders } from "../services/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
@@ -24,8 +24,8 @@ export function AdminPanel({
   const [resultadosEdit, setResultadosEdit] = useState(resultados || {});
   const [campeoRealEdit, setCampeoRealEdit] = useState(campeoReal || "");
   const [jogoSelecionado, setJogoSelecionado] = useState("");
-  const [participantes, setParticipantes] = useState([]);
   const [carregandoPart, setCarregandoPart] = useState(false);
+  const [participantes, setParticipantes] = useState([]);
   const [valorAposta, setValorAposta] = useState(20);
   const [apiUrl, setApiUrl] = useState("");
   const [buscando, setBuscando] = useState(false);
@@ -44,19 +44,18 @@ export function AdminPanel({
   const [grupoMembrosAberto, setGrupoMembrosAberto] = useState(null);
   const [membrosGrupo, setMembrosGrupo] = useState([]);
   const [grupoEditando, setGrupoEditando] = useState(null);
-  const [conviteNome, setConviteNome] = useState("");
+  const [grupoExcluindo, setGrupoExcluindo] = useState(null);
   const [msgConvite, setMsgConvite] = useState("");
-  const [convidando, setConvidando] = useState(false);
   const [membros, setMembros] = useState([]);
+  const [linkConvite, setLinkConvite] = React.useState("");
+  const [convites, setConvites] = React.useState([]);
 
   useEffect(() => {
     if (!isGroupAdmin || !grupoAtivo?.id) return;
     let ativo = true;
-    import("../services/grupos").then(({ listarMembros }) => {
-      listarMembros(grupoAtivo.id).then((data) => {
-        if (ativo) setMembros(data || []);
-      }).catch(() => { if (ativo) setMembros([]); });
-    });
+    listarMembros(grupoAtivo.id).then((data) => {
+      if (ativo) setMembros(data || []);
+    }).catch(() => { if (ativo) setMembros([]); });
     return () => { ativo = false; };
   }, [isGroupAdmin, grupoAtivo?.id]);
 
@@ -84,13 +83,13 @@ export function AdminPanel({
   const carregarLixeira = useCallback(async () => {
     setCarregandoLixeira(true);
     try {
-      const data = await listarCartelasExcluidas();
+      const data = await listarCartelasExcluidas(grupoAtivo?.id || "");
       setCartelasExcluidas(data || []);
     } catch {
       setCartelasExcluidas([]);
     }
     setCarregandoLixeira(false);
-  }, []);
+  }, [grupoAtivo?.id]);
 
   const handleSalvarResultado = useCallback(
     (jogoId, ga, gb) => {
@@ -149,10 +148,12 @@ export function AdminPanel({
     }
   };
 
-  const carregarGrupos = useCallback(async () => {
+  const carregarGrupos = useCallback(async (adminPass) => {
     setCarregandoGrupos(true);
     try {
-      const data = await listarTodosGrupos();
+      const senha = adminPass || prompt("Digite a senha de super admin para listar grupos:");
+      if (!senha) { setCarregandoGrupos(false); return; }
+      const data = await listarTodosGrupos(senha);
       setGruposLista(data || []);
     } catch {
       setGruposLista([]);
@@ -165,8 +166,10 @@ export function AdminPanel({
       setMsgGrupo("Preencha nome, slug e admin.");
       return;
     }
+    const adminPass = prompt("Digite a senha de super admin para criar grupo:");
+    if (!adminPass) return;
     try {
-      await criarGrupo(novoGrupoNome, novoGrupoSlug, novoGrupoAdmin, novoGrupoValor);
+      await criarGrupo(novoGrupoNome, novoGrupoSlug, novoGrupoAdmin, novoGrupoValor, adminPass);
       setMsgGrupo("Grupo criado com sucesso!");
       setNovoGrupoNome("");
       setNovoGrupoSlug("");
@@ -199,18 +202,36 @@ export function AdminPanel({
       valor_aposta: g.valor_aposta || 20,
       pontos_cheio: g.pontos_cheio || 5,
       pontos_vencedor: g.pontos_vencedor || 3,
+      admin_nome: g.admin_nome || g.admin || "",
     });
   };
 
   const handleSalvarEdicaoGrupo = async (g) => {
+    const adminPass = prompt("Digite a senha de super admin para salvar:");
+    if (!adminPass) return;
     try {
-      await atualizarGrupo(g.id, g.admin_nome || g.admin, grupoEditando);
+      await atualizarGrupo(g.id, grupoEditando.admin_nome, grupoEditando, adminPass);
       alert("Grupo atualizado!");
       setGrupoEditando(null);
       carregarGrupos();
     } catch (e) {
       alert("Erro: " + e.message);
     }
+  };
+
+  const handleExcluirGrupo = async (g) => {
+    if (!window.confirm(`Tem certeza que deseja EXCLUIR PERMANENTEMENTE o grupo "${g.nome}"?\n\nIsso removerá todas as cartelas, membros e convites deste grupo. Esta ação NÃO pode ser desfeita.`)) return;
+    const adminPass = prompt("Digite a senha de super admin para confirmar exclusão:");
+    if (!adminPass) return;
+    setGrupoExcluindo(g.id);
+    try {
+      await excluirGrupo(g.id, adminPass);
+      alert(`Grupo "${g.nome}" excluído permanentemente!`);
+      carregarGrupos();
+    } catch (e) {
+      alert("Erro ao excluir: " + e.message);
+    }
+    setGrupoExcluindo(null);
   };
 
   const handleRemoverMembro = async (g, membro) => {
@@ -225,35 +246,6 @@ export function AdminPanel({
     }
   };
 
-  const handleConvidar = async () => {
-    if (!conviteNome || !grupoAtivo?.id) return;
-    setConvidando(true);
-    setMsgConvite("");
-    try {
-      const { supabaseFetch, supabaseHeaders } = await import("../services/supabase");
-      const res = await supabaseFetch("/rest/v1/membros_grupo", {
-        method: "POST",
-        headers: { ...supabaseHeaders, Prefer: "resolution=merge-duplicates" },
-        body: JSON.stringify({
-          grupo_id: grupoAtivo.id,
-          usuario_id: conviteNome.trim(),
-          role: "participante",
-        }),
-      });
-      if (!res.ok && res.status !== 201) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt.slice(0, 200));
-      }
-      setMsgConvite(`${conviteNome.trim()} adicionado ao grupo!`);
-      setConviteNome("");
-      const data = await listarMembros(grupoAtivo.id);
-      setMembros(data || []);
-    } catch (e) {
-      setMsgConvite("Erro: " + e.message);
-    }
-    setConvidando(false);
-  };
-
   const handleRemoverMembroGrupo = async (m) => {
     const nome = m.usuario_id || m.nome;
     if (!window.confirm(`Remover "${nome}" do grupo?`)) return;
@@ -263,6 +255,44 @@ export function AdminPanel({
       setMembros(data || []);
     } catch (e) {
       alert("Erro ao remover: " + e.message);
+    }
+  };
+
+  const carregarConvites = React.useCallback(async () => {
+    if (!grupoAtivo?.id) return;
+    try {
+      const data = await listarConvites(grupoAtivo.id);
+      setConvites(data || []);
+    } catch {}
+  }, [grupoAtivo?.id]);
+
+  React.useEffect(() => {
+    if (isGroupAdmin) {
+      carregarConvites();
+    }
+  }, [isGroupAdmin, grupoAtivo?.id, carregarConvites]);
+
+  const handleGerarLinkConvite = async () => {
+    if (!grupoAtivo?.id) return;
+    setMsgConvite("");
+    try {
+      const res = await gerarConvite(grupoAtivo.id);
+      const baseUrl = window.location.origin + (import.meta.env.BASE_URL || "/");
+      setLinkConvite(baseUrl + "convite/" + res.token);
+      setMsgConvite("Link de convite gerado!");
+      carregarConvites();
+    } catch (e) {
+      setMsgConvite("Erro ao gerar convite: " + e.message);
+    }
+  };
+
+  const handleRevogarConvite = async (conviteId) => {
+    if (!window.confirm("Revogar este convite? Os participantes ainda não cadastrados não poderão usá-lo.")) return;
+    try {
+      await revogarConvite(conviteId);
+      carregarConvites();
+    } catch (e) {
+      alert("Erro: " + e.message);
     }
   };
 
@@ -283,7 +313,7 @@ export function AdminPanel({
   const tabs = [
     { key: "validar", label: "Validar" },
     { key: "resultados", label: "Resultados" },
-    { key: "participantes", label: "Participantes" },
+    ...(isAdmin ? [{ key: "participantes", label: "Participantes" }] : []),
     ...(isAdmin ? [{ key: "grupos", label: "Grupos" }] : []),
     ...(isAdmin ? [{ key: "config", label: "Config" }] : []),
     { key: "lixeira", label: "\uD83D\uDDD1\uFE0F Lixeira" },
@@ -478,10 +508,10 @@ export function AdminPanel({
         </Card>
       )}
 
-      {abaAdmin === "participantes" && (
+      {isAdmin && abaAdmin === "participantes" && (
         <Card style={{ border: "2px solid #FFD70044" }}>
           <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>
-            Participantes Cadastrados
+            Participantes do Sistema
           </div>
           {carregandoPart ? (
             <div style={{ color: "#8B9CC8", fontSize: 13, textAlign: "center", padding: 12 }}>
@@ -558,51 +588,176 @@ export function AdminPanel({
       {isGroupAdmin && (
         <Card style={{ border: "2px solid #10b98144" }}>
           <div style={{ color: "#10b981", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>
-            Gerenciar Membros do Grupo
+            Gerenciar Grupo: {grupoAtivo?.nome || "—"}
           </div>
+
           {msgConvite && (
             <div style={{ color: msgConvite.startsWith("Erro") ? "#C8102E" : "#10b981", fontSize: 12, marginBottom: 8 }}>{msgConvite}</div>
           )}
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <input
-              placeholder="Nome do jogador para convidar"
-              value={conviteNome}
-              onChange={(e) => setConviteNome(e.target.value)}
-              style={{
-                flex: 1, background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8,
-                color: "#F0F4FF", padding: "8px 10px", fontSize: 13, fontWeight: 500,
-              }}
-            />
+
+          {/* Seção de convite por link (único fluxo de entrada) */}
+          <div style={{ marginBottom: 12, padding: "12px", background: "#0d1b2a", borderRadius: 8, border: "1px solid #1E2A45" }}>
+            <div style={{ color: "#10b981", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+              \uD83D\uDD17 Convidar por Link
+            </div>
+            <div style={{ color: "#8B9CC8", fontSize: 11, marginBottom: 10 }}>
+            Gere um link exclusivo e compartilhe com os participantes. Cada link é único e vinculado a este grupo.
+            </div>
             <button
-              onClick={handleConvidar}
-              disabled={!conviteNome || convidando}
+              onClick={handleGerarLinkConvite}
               style={{
-                background: "#10b981", border: "none", borderRadius: 8, color: "#fff",
-                padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer",
-                opacity: !conviteNome || convidando ? 0.5 : 1,
+                background: "#10b981",
+                border: "none",
+                borderRadius: 8,
+                color: "#fff",
+                padding: "10px 16px",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
+                width: "100%",
               }}
             >
-              {convidando ? "..." : "Convidar"}
+              + Gerar Link de Convite
             </button>
-          </div>
-          <div style={{ color: "#8B9CC8", fontSize: 11, marginBottom: 6 }}>Membros atuais:</div>
-          {membros.length === 0 ? (
-            <div style={{ color: "#8B9CC8", fontSize: 11 }}>Nenhum membro ainda.</div>
-          ) : (
-            membros.map((m, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #1E2A4520" }}>
-                <div>
-                  <span style={{ color: "#F0F4FF", fontSize: 13 }}>{m.usuario_id || m.nome}</span>
-                  <span style={{ color: "#8B9CC8", fontSize: 10, marginLeft: 6 }}>({m.role})</span>
-                </div>
-                {m.role !== "admin" && (
-                  <button onClick={() => handleRemoverMembroGrupo(m)} style={{ background: "transparent", border: "none", color: "#C8102E", cursor: "pointer", fontSize: 12 }}>
-                    Remover
+            {linkConvite && (
+              <div style={{ background: "#1a2234", border: "1px solid #1E2A45", borderRadius: 8, padding: 10, marginTop: 10 }}>
+                <div style={{ color: "#8B9CC8", fontSize: 10, marginBottom: 4 }}>Link gerado (compartilhe com os participantes):</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    readOnly
+                    value={linkConvite}
+                    onClick={(e) => e.target.select()}
+                    style={{
+                      flex: 1,
+                      background: "#0A0E1A",
+                      border: "1px solid #1E2A45",
+                      borderRadius: 6,
+                      color: "#FFD700",
+                      padding: "6px 8px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  />
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(linkConvite); alert("Link copiado!"); }}
+                    style={{
+                      background: "#0033A0",
+                      border: "none",
+                      borderRadius: 6,
+                      color: "#fff",
+                      padding: "6px 10px",
+                      fontSize: 11,
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Copiar
                   </button>
-                )}
+                </div>
               </div>
-            ))
+            )}
+          </div>
+
+          {/* Convites ativos */}
+          {convites.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ color: "#8B9CC8", fontSize: 11, marginBottom: 6 }}>Convites ativos:</div>
+              {convites.filter(c => c.ativo).map(c => (
+                <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #1E2A4520" }}>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <span style={{ color: "#8B9CC8", fontSize: 10, fontFamily: "monospace" }}>{c.token.slice(0, 16)}...</span>
+                    <span style={{ color: "#4B5563", fontSize: 9 }}>
+                      {c.max_usos > 0 ? `${c.usos}/${c.max_usos} usos` : "uso ilimitado"}
+                      {c.expira_em ? ` · Expira ${new Date(c.expira_em).toLocaleDateString("pt-BR")}` : ""}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleRevogarConvite(c.id)}
+                    style={{
+                      background: "transparent",
+                      border: "1px solid #C8102E44",
+                      borderRadius: 6,
+                      color: "#C8102E",
+                      padding: "4px 10px",
+                      cursor: "pointer",
+                      fontSize: 11,
+                    }}
+                  >
+                    Revogar
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
+
+          {/* Membros atuais do grupo */}
+          <div style={{ borderTop: "1px solid #1E2A45", paddingTop: 12 }}>
+            <div style={{ color: "#8B9CC8", fontSize: 11, marginBottom: 6 }}>
+              Membros do grupo ({membros.length}):
+            </div>
+            {membros.length === 0 ? (
+              <div style={{ color: "#4B5563", fontSize: 11, padding: "8px 0" }}>Nenhum membro ainda. Compartilhe o link de convite!</div>
+            ) : (
+              membros.map((m, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 0",
+                    borderBottom: "1px solid #1E2A4520",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      background: m.role === "admin" ? "#FFD700" : "#0033A0",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#fff",
+                      fontWeight: 700,
+                      fontSize: 11,
+                    }}>
+                      {(m.usuario_id || m.nome || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <span style={{ color: "#F0F4FF", fontSize: 13 }}>{m.usuario_id || m.nome}</span>
+                      <span style={{
+                        color: m.role === "admin" ? "#FFD700" : "#8B9CC8",
+                        fontSize: 10,
+                        marginLeft: 6,
+                        background: m.role === "admin" ? "#FFD70022" : "transparent",
+                        padding: m.role === "admin" ? "1px 6px" : 0,
+                        borderRadius: 4,
+                      }}>
+                        {m.role === "admin" ? "admin" : "participante"}
+                      </span>
+                    </div>
+                  </div>
+                  {m.role !== "admin" && (
+                    <button
+                      onClick={() => handleRemoverMembroGrupo(m)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "#C8102E",
+                        cursor: "pointer",
+                        fontSize: 12,
+                        opacity: 0.7,
+                      }}
+                      title="Remover do grupo"
+                    >
+                      {"\uD83D\uDDD1\uFE0F"}
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         </Card>
       )}
 
@@ -616,28 +771,24 @@ export function AdminPanel({
             <div style={{ color: "#10b981", fontSize: 12, marginBottom: 8 }}>{msgGrupo}</div>
           )}
 
-          {isAdmin && (
-            <>
-              <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 8, marginTop: 12 }}>
-                Criar Novo Grupo
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <input placeholder="Nome do grupo" value={novoGrupoNome} onChange={(e) => setNovoGrupoNome(e.target.value)} style={inputStyle} />
-                <input placeholder="Slug (ex: familia)" value={novoGrupoSlug} onChange={(e) => setNovoGrupoSlug(e.target.value)} style={inputStyle} />
-                <input placeholder="Admin (nome do jogador)" value={novoGrupoAdmin} onChange={(e) => setNovoGrupoAdmin(e.target.value)} style={inputStyle} />
-                <input type="number" placeholder="Valor aposta (R$)" value={novoGrupoValor} onChange={(e) => setNovoGrupoValor(Number(e.target.value))} style={inputStyle} />
-                <Btn onClick={handleCriarGrupo}>Criar Grupo</Btn>
-              </div>
-            </>
-          )}
+          <div style={{ marginBottom: 16, padding: 12, background: "#0d1b2a", borderRadius: 8 }}>
+            <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 8 }}>Criar Novo Grupo</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <input placeholder="Nome do grupo" value={novoGrupoNome} onChange={(e) => setNovoGrupoNome(e.target.value)} style={inputStyle} />
+              <input placeholder="Slug (ex: familia)" value={novoGrupoSlug} onChange={(e) => setNovoGrupoSlug(e.target.value)} style={inputStyle} />
+              <input placeholder="Admin (nome do jogador)" value={novoGrupoAdmin} onChange={(e) => setNovoGrupoAdmin(e.target.value)} style={inputStyle} />
+              <input type="number" placeholder="Valor aposta (R$)" value={novoGrupoValor} onChange={(e) => setNovoGrupoValor(Number(e.target.value))} style={inputStyle} />
+              <Btn onClick={handleCriarGrupo}>Criar Grupo</Btn>
+            </div>
+          </div>
 
-          <div style={{ marginTop: 16 }}>
-            <Btn onClick={carregarGrupos} style={{ marginBottom: 8 }}>
+          <div>
+            <Btn onClick={() => carregarGrupos()} style={{ marginBottom: 8 }}>
               {carregandoGrupos ? "Carregando..." : "Atualizar Lista"}
             </Btn>
 
             {gruposLista.length === 0 && !carregandoGrupos && (
-              <div style={{ color: "#8B9CC8", fontSize: 12, padding: 8 }}>Nenhum grupo encontrado.</div>
+              <div style={{ color: "#8B9CC8", fontSize: 12, padding: 8 }}>Nenhum grupo encontrado. Clique em "Atualizar Lista" e digite a senha de admin.</div>
             )}
 
             {gruposLista.map((g) => (
@@ -647,27 +798,34 @@ export function AdminPanel({
                     <span style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 14 }}>{g.nome}</span>
                     <span style={{ color: "#8B9CC8", fontSize: 11, marginLeft: 8 }}>/{g.slug}</span>
                   </div>
-                  {isAdmin && (
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => abrirEditarGrupo(g)} style={{ background: "transparent", border: "none", color: "#1a4fd6", cursor: "pointer", fontSize: 13 }}>
-                        Editar
-                      </button>
-                      <button onClick={() => toggleMembros(g)} style={{ background: "transparent", border: "none", color: "#10b981", cursor: "pointer", fontSize: 13 }}>
-                        Membros
-                      </button>
-                    </div>
-                  )}
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => abrirEditarGrupo(g)} style={{ background: "transparent", border: "none", color: "#1a4fd6", cursor: "pointer", fontSize: 13 }}>
+                      Editar
+                    </button>
+                    <button onClick={() => handleExcluirGrupo(g)} style={{ background: "transparent", border: "none", color: "#C8102E", cursor: "pointer", fontSize: 13 }}>
+                      {grupoExcluindo === g.id ? "..." : "Excluir"}
+                    </button>
+                    <button onClick={() => toggleMembros(g)} style={{ background: "transparent", border: "none", color: "#10b981", cursor: "pointer", fontSize: 13 }}>
+                      Membros
+                    </button>
+                  </div>
                 </div>
                 <div style={{ color: "#8B9CC8", fontSize: 11, marginTop: 4 }}>
-                  Admin: {g.admin_nome || g.admin} | Valor: R$ {g.valor_aposta} | {g.qtde_membros || "?"} membros
+                  Admin: {g.admin_nome || g.admin || "—"} | Valor: R$ {g.valor_aposta} | {g.qtde_membros || "?"} membros
                 </div>
 
                 {grupoEditando && grupoEditando.id === g.id && (
-                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                    <input type="number" placeholder="Valor aposta" value={grupoEditando.valor_aposta} onChange={(e) => setGrupoEditando({ ...grupoEditando, valor_aposta: e.target.value })} style={inputStyle} />
-                    <input type="number" placeholder="pts cheio" value={grupoEditando.pontos_cheio || 5} onChange={(e) => setGrupoEditando({ ...grupoEditando, pontos_cheio: e.target.value })} style={inputStyle} />
-                    <input type="number" placeholder="pts vencedor" value={grupoEditando.pontos_vencedor || 3} onChange={(e) => setGrupoEditando({ ...grupoEditando, pontos_vencedor: e.target.value })} style={inputStyle} />
-                    <Btn onClick={() => handleSalvarEdicaoGrupo(g)}>Salvar</Btn>
+                  <div style={{ marginTop: 10, padding: 10, background: "#0d1b2a", borderRadius: 8 }}>
+                    <div style={{ color: "#FFD700", fontSize: 11, marginBottom: 6 }}>Editar Grupo</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <input type="number" placeholder="Valor aposta" value={grupoEditando.valor_aposta} onChange={(e) => setGrupoEditando({ ...grupoEditando, valor_aposta: Number(e.target.value) })} style={inputStyle} />
+                      <input type="number" placeholder="Pts acerto cheio" value={grupoEditando.pontos_cheio} onChange={(e) => setGrupoEditando({ ...grupoEditando, pontos_cheio: Number(e.target.value) })} style={inputStyle} />
+                      <input type="number" placeholder="Pts vencedor certo" value={grupoEditando.pontos_vencedor} onChange={(e) => setGrupoEditando({ ...grupoEditando, pontos_vencedor: Number(e.target.value) })} style={inputStyle} />
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <Btn onClick={() => handleSalvarEdicaoGrupo(g)} style={{ flex: 1 }}>Salvar</Btn>
+                        <Btn onClick={() => setGrupoEditando(null)} cor="#555" style={{ flex: 1 }}>Cancelar</Btn>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -791,7 +949,7 @@ export function AdminPanel({
       {abaAdmin === "lixeira" && (
         <Card style={{ border: "2px solid #C8102E44" }}>
           <div style={{ color: "#C8102E", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>
-            🗑️ Lixeira — Cartelas Excluídas
+            {"\uD83D\uDDD1\uFE0F"} Lixeira — Cartelas Excluídas
           </div>
           {carregandoLixeira ? (
             <div style={{ color: "#8B9CC8", fontSize: 13, textAlign: "center", padding: 12 }}>

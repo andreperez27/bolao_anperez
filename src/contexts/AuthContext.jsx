@@ -88,7 +88,11 @@ export function AuthProvider({ children }) {
     }
   }, [carregarGrupos]);
 
-  const isGroupAdmin = useMemo(() => !isAdmin && (meusGrupos || []).some(g => g.role === 'admin'), [isAdmin, meusGrupos]);
+  const isGroupAdmin = useMemo(() => {
+    if (isAdmin || !grupoAtivo?.id) return false;
+    const grupo = (meusGrupos || []).find(g => g.id === grupoAtivo.id);
+    return grupo?.role === 'admin';
+  }, [isAdmin, grupoAtivo, meusGrupos]);
 
   return (
     <AuthContext.Provider

@@ -12,6 +12,7 @@ import MinhasCartelas from "./pages/MinhasCartelas";
 import PreencherCartela from "./pages/PreencherCartela";
 import RankingPage from "./pages/Ranking";
 import Tabela from "./pages/Tabela";
+import Convite from "./pages/Convite";
 import { ModalInstrucoes } from "./components/ModalInstrucoes";
 import { PrintArea } from "./components/PrintArea";
 import { OfflineBanner } from "./components/OfflineBanner";
@@ -50,7 +51,7 @@ export default function App() {
     async ({ isAdmin: adminFlag }) => {
       refreshUser();
       if (adminFlag) {
-        navigate("/ranking", { replace: true });
+        navigate("/admin", { replace: true });
       } else {
         navigate("/minhas-cartelas", { replace: true });
       }
@@ -227,6 +228,26 @@ export default function App() {
           }
         />
         <Route
+          path="/admin"
+          element={
+            <RankingPage
+              cartelas={cartelas}
+              resultados={resultados}
+              campeoReal={campeoReal}
+              config={config}
+              isAdmin={isAdmin}
+              isGroupAdmin={isGroupAdmin}
+              ultimaAtualizacao={ultimaAtualizacao}
+              onVoltar={() => navigate("/minhas-cartelas")}
+              onValidarCartela={validar}
+              onResultadosChange={handleResultadosChange}
+              onShowInstrucoes={() => setShowInstrucoes(true)}
+              onVerTabela={() => navigate("/tabela")}
+              onVerCartela={handleVerCartela}
+            />
+          }
+        />
+        <Route
           path="/tabela"
           element={
             <Tabela
@@ -246,6 +267,7 @@ export default function App() {
             />
           }
         />
+        <Route path="/convite/:token" element={<Convite />} />
         <Route path="*" element={<Login onLogin={handleLogin} />} />
       </Routes>
       {showInstrucoes && (
