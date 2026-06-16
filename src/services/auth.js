@@ -35,15 +35,23 @@ async function rpc(name, params) {
 export async function signIn({ nome, senha, grupoId = "geral" }) {
   const data = await rpc("buscar_jogador", { p_nome: nome.trim(), p_senha: senha, p_grupo_id: grupoId });
   if (!data || !data.nome) throw new Error("Nome ou senha incorretos");
-  salvarSession({ nome: data.nome, isAdmin: false });
+  salvarSession({ nome: data.nome, isAdmin: false, senhaPadrao: senha === '123456' });
   return data;
 }
 
 export async function signUp({ nome, senha, grupoId = "geral" }) {
   if (senha.length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres");
   await rpc("criar_jogador", { p_nome: nome.trim(), p_senha: senha, p_grupo_id: grupoId });
-  salvarSession({ nome: nome.trim(), isAdmin: false });
+  salvarSession({ nome: nome.trim(), isAdmin: false, senhaPadrao: senha === '123456' });
   return { nome: nome.trim() };
+}
+
+export function limparSenhaPadrao() {
+  const session = getSession();
+  if (session) {
+    session.senhaPadrao = false;
+    salvarSession(session);
+  }
 }
 
 export async function signInAdmin({ senha, grupoId = "geral" }) {

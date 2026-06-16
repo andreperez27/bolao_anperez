@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useGrupo } from "../contexts/GrupoContext";
 
 export default function Login({ onLogin }) {
-  const { user, loading: authLoading, signIn, signUp, signInAdmin } = useAuth();
+  const { user, loading: authLoading, senhaPadrao, signIn, signUp, signInAdmin } = useAuth();
   const { grupo } = useGrupo();
   const [nome, setNome] = useState("");
   const [senha, setSenha] = useState("");
@@ -22,7 +22,7 @@ export default function Login({ onLogin }) {
     setErro("");
     try {
       await signIn(nome.trim(), senha);
-      onLogin({ isAdmin: false });
+      onLogin({ isAdmin: false, senhaPadrao: senha === '123456' });
     } catch (e) {
       setErro(e.message);
     }
@@ -43,8 +43,7 @@ export default function Login({ onLogin }) {
     setErro("");
     try {
       await signUp(nome.trim(), senha);
-      setErro("Conta criada! Bem-vindo ao bolão.");
-      setModo(null);
+      onLogin({ isAdmin: false, senhaPadrao: senha === '123456' });
     } catch (e) {
       setErro(e.message);
     }
@@ -233,7 +232,7 @@ export default function Login({ onLogin }) {
             <div style={{ color: "#F0F4FF", textAlign: "center", marginBottom: 12 }}>
               Você já está logado como <strong>{user?.nome}</strong>
             </div>
-            <Btn onClick={() => onLogin({ isAdmin: false })} cor="#16a34a" style={{ width: "100%" }}>
+            <Btn onClick={() => onLogin({ isAdmin: false, senhaPadrao })} cor="#16a34a" style={{ width: "100%" }}>
               Continuar
             </Btn>
           </>

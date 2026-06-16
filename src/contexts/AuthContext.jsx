@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from "react";
-import { getSession, limparSession, signIn as signInSvc, signUp as signUpSvc, signInAdmin as signInAdminSvc } from "../services/auth";
+import { getSession, limparSession, limparSenhaPadrao, signIn as signInSvc, signUp as signUpSvc, signInAdmin as signInAdminSvc } from "../services/auth";
 import { getJogador } from "../services/jogadores";
 import { useGrupo } from "./GrupoContext";
 
@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
   const [jogador, setJogador] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [senhaPadrao, setSenhaPadrao] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -18,6 +19,7 @@ export function AuthProvider({ children }) {
     if (session) {
       setUser(session);
       setIsAdmin(session.isAdmin === true);
+      setSenhaPadrao(session.senhaPadrao === true);
       if (session.nome && !session.isAdmin) {
         getJogador(session.nome, grupoId).then(setJogador).catch(() => {});
       }
@@ -29,6 +31,7 @@ export function AuthProvider({ children }) {
     const data = await signInSvc({ nome, senha, grupoId });
     setUser(data);
     setIsAdmin(false);
+    setSenhaPadrao(senha === '123456');
     if (data.nome) {
       const p = await getJogador(data.nome, grupoId).catch(() => null);
       setJogador(p);
@@ -40,8 +43,14 @@ export function AuthProvider({ children }) {
     const data = await signUpSvc({ nome, senha, grupoId });
     setUser(data);
     setIsAdmin(false);
+    setSenhaPadrao(senha === '123456');
     return data;
   }, [grupoId]);
+
+  const handleTrocarSenha = useCallback(() => {
+    setSenhaPadrao(false);
+    limparSenhaPadrao();
+  }, []);
 
   const signInAdmin = useCallback(async (senha) => {
     const data = await signInAdminSvc({ senha, grupoId });
@@ -79,9 +88,9 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider
       value={{
-        user, jogador, isAdmin, loading,
+        user, jogador, isAdmin, loading, senhaPadrao,
         signIn, signUp, signInAdmin, signOut,
-        refreshJogador, refreshUser,
+        refreshJogador, refreshUser, handleTrocarSenha,
       }}
     >
       {children}

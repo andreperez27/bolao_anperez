@@ -137,6 +137,7 @@ END;
 $$;
 
 -- 14. RPC: criar novo grupo (admin master)
+DROP FUNCTION IF EXISTS criar_grupo(TEXT, TEXT, TEXT, NUMERIC);
 CREATE OR REPLACE FUNCTION criar_grupo(p_nome TEXT, p_slug TEXT, p_senha_admin TEXT, p_valor_aposta NUMERIC DEFAULT 20)
 RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE v_id TEXT;
@@ -197,5 +198,89 @@ CREATE OR REPLACE FUNCTION excluir_cartela_definitivo(cartela_id TEXT)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
   DELETE FROM cartelas WHERE id = cartela_id;
+END;
+$$;
+
+-- 19. RPC: trocar senha do jogador
+CREATE OR REPLACE FUNCTION trocar_senha(p_nome TEXT, p_senha_antiga TEXT, p_senha_nova TEXT, p_grupo_id TEXT DEFAULT 'geral')
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM jogadores WHERE nome = p_nome AND senha = p_senha_antiga AND grupo_id = p_grupo_id) THEN
+    RAISE EXCEPTION 'Senha atual incorreta';
+  END IF;
+  IF LENGTH(p_senha_nova) < 6 THEN
+    RAISE EXCEPTION 'A nova senha deve ter pelo menos 6 caracteres';
+  END IF;
+  UPDATE jogadores SET senha = p_senha_nova WHERE nome = p_nome AND grupo_id = p_grupo_id;
+  RETURN json_build_object('ok', true);
+END;
+$$;
+
+-- 20. RPC: atualizar dados do grupo (admin master)
+DROP FUNCTION IF EXISTS atualizar_admin_grupo(TEXT, TEXT, TEXT, TEXT, NUMERIC, TEXT);
+CREATE OR REPLACE FUNCTION atualizar_admin_grupo(
+  p_grupo_id TEXT,
+  p_nome TEXT DEFAULT NULL,
+  p_slug TEXT DEFAULT NULL,
+  p_nome_admin TEXT DEFAULT NULL,
+  p_valor_aposta NUMERIC DEFAULT NULL,
+  p_senha_admin TEXT DEFAULT NULL
+)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  -- Atualizar nome do grupo
+  IF p_nome IS NOT NULL THEN
+    UPDATE grupos SET nome = p_nome WHERE id = p_grupo_id;
+  END IF;
+  -- Atualizar slug (com uniqueness check)
+  IF p_slug IS NOT NULL THEN
+    IF EXISTS (SELECT 1 FROM grupos WHERE slug = p_slug AND id <> p_grupo_id) THEN
+      RAISE EXCEPTION 'Este slug já está em uso';
+    END IF;
+    UPDATE grupos SET slug = p_slug WHERE id = p_grupo_id;
+  END IF;
+  -- Atualizar config
+  IF p_valor_aposta IS NOT NULL THEN
+    UPDATE config SET valor_aposta = p_valor_aposta WHERE grupo_id = p_grupo_id;
+  END IF;
+  IF p_senha_admin IS NOT NULL THEN
+    UPDATE config SET admin_password = p_senha_admin WHERE grupo_id = p_grupo_id;
+  END IF;
+  -- Criar jogador admin se não existir (senha inicial 123456)
+  IF p_nome_admin IS NOT NULL AND NOT EXISTS (SELECT 1 FROM jogadores WHERE nome = p_nome_admin AND grupo_id = p_grupo_id) THEN
+    INSERT INTO jogadores (nome, senha, grupo_id) VALUES (p_nome_admin, '123456', p_grupo_id);
+  END IF;
+  RETURN json_build_object('ok', true);
+END;
+$$;
+
+-- 21. Atualizar criar_grupo para também criar o jogador admin
+DROP FUNCTION IF EXISTS criar_grupo(TEXT, TEXT, TEXT, NUMERIC);
+CREATE OR REPLACE FUNCTION criar_grupo(p_nome TEXT, p_slug TEXT, p_senha_admin TEXT, p_valor_aposta NUMERIC DEFAULT 20)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE v_id TEXT;
+BEGIN
+  IF EXISTS (SELECT 1 FROM grupos WHERE slug = p_slug) THEN
+    RAISE EXCEPTION 'Este slug já está em uso';
+  END IF;
+  v_id := gen_random_uuid()::TEXT;
+  INSERT INTO grupos (id, nome, slug) VALUES (v_id, p_nome, p_slug);
+  INSERT INTO config (grupo_id, valor_aposta, admin_password, api_url, bonus_geral)
+  VALUES (v_id, p_valor_aposta, p_senha_admin, 'https://worldcup26.ir/get/games', 0)
+  ON CONFLICT DO NOTHING;
+  INSERT INTO admin (grupo_id, resultados, campeo_real)
+  VALUES (v_id, '{}', '')
+  ON CONFLICT DO NOTHING;
+  RETURN json_build_object('id', v_id, 'slug', p_slug, 'nome', p_nome);
+END;
+$$;
+
+-- 22. RPC: verificar se jogador tem senha padrão (123456)
+CREATE OR REPLACE FUNCTION senha_eh_padrao(p_nome TEXT, p_grupo_id TEXT DEFAULT 'geral')
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE v_senha TEXT;
+BEGIN
+  SELECT senha INTO v_senha FROM jogadores WHERE nome = p_nome AND grupo_id = p_grupo_id;
+  RETURN v_senha = '123456';
 END;
 $$;

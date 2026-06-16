@@ -9,10 +9,58 @@ import { calcularPontos, pontosCampeaoPorFase } from "../utils/pontuacao";
 import { NOMES_IA } from "../services/ia";
 import { GroupSelector } from "../components/GroupSelector";
 import { useAuth } from "../contexts/AuthContext";
+import { useGrupo } from "../contexts/GrupoContext";
+import { atualizarAdminGrupo, getConfig } from "../services/admin";
+import { supabaseFetch } from "../services/supabase";
 
 function SuperAdminPainel({ onVoltar }) {
-  const { signOut, user, isAdmin } = useAuth();
+  const { signOut } = useAuth();
+  const { grupo, grupoId } = useGrupo();
   const [msg, setMsg] = React.useState("");
+  const [carregando, setCarregando] = React.useState(false);
+  const [editando, setEditando] = React.useState(false);
+  const [dados, setDados] = React.useState({ nome: "", slug: "", nome_admin: "", valor_aposta: 20, senha_admin: "" });
+  const [grupoInfo, setGrupoInfo] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!grupoId) return;
+    Promise.all([
+      supabaseFetch("/rest/v1/grupos?select=nome,slug&id=eq." + encodeURIComponent(grupoId)).then(r => r.json()),
+      getConfig(grupoId),
+    ]).then(([g, cfg]) => {
+      const grp = g?.[0] || {};
+      setGrupoInfo({ nome: grp.nome, slug: grp.slug, valor_aposta: cfg.valor_aposta });
+      setDados({ nome: grp.nome || "", slug: grp.slug || "", nome_admin: "", valor_aposta: cfg.valor_aposta || 20, senha_admin: "" });
+    }).catch(() => {});
+  }, [grupoId]);
+
+  const handleSalvar = async () => {
+    setCarregando(true);
+    setMsg("");
+    try {
+      const payload = {};
+      if (dados.nome !== grupoInfo?.nome) payload.nome = dados.nome;
+      if (dados.slug !== grupoInfo?.slug) payload.slug = dados.slug;
+      if (dados.nome_admin) payload.nome_admin = dados.nome_admin;
+      if (dados.valor_aposta !== grupoInfo?.valor_aposta) payload.valor_aposta = dados.valor_aposta;
+      if (dados.senha_admin) payload.senha_admin = dados.senha_admin;
+      if (Object.keys(payload).length === 0) { setMsg("Nenhuma alteração."); setCarregando(false); return; }
+      await atualizarAdminGrupo(grupoId, payload);
+      setMsg("Grupo atualizado!" + (dados.nome_admin ? " Admin criado com senha 123456." : ""));
+      setEditando(false);
+      const [g, cfg] = await Promise.all([
+        supabaseFetch("/rest/v1/grupos?select=nome,slug&id=eq." + encodeURIComponent(grupoId)).then(r => r.json()),
+        getConfig(grupoId),
+      ]);
+      const grp = g?.[0] || {};
+      setGrupoInfo({ nome: grp.nome, slug: grp.slug, valor_aposta: cfg.valor_aposta });
+    } catch (e) {
+      setMsg("Erro: " + e.message);
+    }
+    setCarregando(false);
+  };
+
+  const inputStyle = { width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14, fontWeight: 500, boxSizing: "border-box" };
 
   return (
     <div style={{ minHeight: "100vh", background: "#0A0E1A", paddingBottom: 60 }}>
@@ -25,13 +73,35 @@ function SuperAdminPainel({ onVoltar }) {
         <div style={{ color: "#F0F4FF", fontSize: 20, fontWeight: 900, marginTop: 4 }}>Painel do Administrador</div>
       </div>
       <div style={{ padding: "14px 16px 0", maxWidth: 600, margin: "0 auto" }}>
-        {msg && <div style={{ color: msg.includes("Erro") ? "#C8102E" : "#10b981", fontSize: 12, marginBottom: 8 }}>{msg}</div>}
+        {msg && <div style={{ color: msg.startsWith("Erro") ? "#C8102E" : "#10b981", fontSize: 12, marginBottom: 8 }}>{msg}</div>}
+
         <Card>
-          <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 8 }}>Você está logado como administrador.</div>
+          {grupoInfo && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>{grupoInfo.nome}</div>
+              <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 4 }}>/{grupoInfo.slug}</div>
+              <div style={{ color: "#F0F4FF", fontSize: 14, fontWeight: 600 }}>R$ {grupoInfo.valor_aposta}</div>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8 }}>
             <Btn onClick={() => window.location.href = window.location.pathname.replace(/\/admin.*/, "/ranking")} cor="#0033A0" style={{ flex: 1 }}>Ver Ranking</Btn>
+            <Btn onClick={() => setEditando(!editando)} cor="#FFD700" style={{ flex: 1 }}>{editando ? "Cancelar" : "Editar Grupo"}</Btn>
           </div>
         </Card>
+
+        {editando && (
+          <Card>
+            <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Editar {grupoInfo?.nome || "Grupo"}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <input placeholder="Nome do grupo" value={dados.nome} onChange={e => setDados({ ...dados, nome: e.target.value })} style={inputStyle} />
+              <input placeholder="Slug (ex: familia)" value={dados.slug} onChange={e => setDados({ ...dados, slug: e.target.value })} style={inputStyle} />
+              <input placeholder="Admin (nome do jogador)" value={dados.nome_admin} onChange={e => setDados({ ...dados, nome_admin: e.target.value })} style={inputStyle} />
+              <input type="number" placeholder="Valor aposta (R$)" value={dados.valor_aposta} onChange={e => setDados({ ...dados, valor_aposta: Number(e.target.value) })} style={inputStyle} />
+              <input type="password" placeholder="Nova senha do admin (deixe vazio para manter)" value={dados.senha_admin} onChange={e => setDados({ ...dados, senha_admin: e.target.value })} style={inputStyle} />
+              <Btn onClick={handleSalvar} disabled={carregando} style={{ width: "100%" }}>{carregando ? "Salvando..." : "Salvar"}</Btn>
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

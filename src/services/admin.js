@@ -1,5 +1,26 @@
 import { supabaseFetch, supabaseHeaders } from "./supabase";
 
+export async function atualizarAdminGrupo(grupoId, dados) {
+  const res = await supabaseFetch("/rest/v1/rpc/atualizar_admin_grupo", {
+    method: "POST",
+    body: JSON.stringify({
+      p_grupo_id: grupoId,
+      p_nome: dados.nome || null,
+      p_slug: dados.slug || null,
+      p_nome_admin: dados.nome_admin || null,
+      p_valor_aposta: dados.valor_aposta != null ? Number(dados.valor_aposta) : null,
+      p_senha_admin: dados.senha_admin || null,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = text;
+    try { const j = JSON.parse(text); msg = j.message || j.error || text; } catch {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
 export async function getAdminData(grupoId = "geral") {
   try {
     const res = await supabaseFetch("/rest/v1/admin?select=resultados,campeo_real&grupo_id=eq." + encodeURIComponent(grupoId));

@@ -13,6 +13,7 @@ import MinhasCartelas from "./pages/MinhasCartelas";
 import PreencherCartela from "./pages/PreencherCartela";
 import RankingPage from "./pages/Ranking";
 import Tabela from "./pages/Tabela";
+import TrocarSenha from "./pages/TrocarSenha";
 import { ModalInstrucoes } from "./components/ModalInstrucoes";
 import { PrintArea } from "./components/PrintArea";
 import { OfflineBanner } from "./components/OfflineBanner";
@@ -20,7 +21,7 @@ import { OfflineBanner } from "./components/OfflineBanner";
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, jogador, isAdmin, signOut, refreshJogador, refreshUser } = useAuth();
+  const { user, jogador, isAdmin, senhaPadrao, signOut, refreshJogador, refreshUser, handleTrocarSenha } = useAuth();
   const { grupoId, grupo } = useGrupo();
   const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas(grupoId);
   const { resultados, campeoReal, config, updateResultados, loadData, ultimaAtualizacao } = useRanking(grupoId);
@@ -38,9 +39,11 @@ export default function App() {
   }, [user]);
 
   const handleLogin = useCallback(
-    async ({ isAdmin: adminFlag }) => {
+    async ({ isAdmin: adminFlag, senhaPadrao: sp }) => {
       refreshUser();
-      if (adminFlag) {
+      if (sp) {
+        navigate("trocar-senha", { replace: true });
+      } else if (adminFlag) {
         navigate("admin", { replace: true });
       } else {
         navigate("minhas-cartelas", { replace: true });
@@ -240,6 +243,7 @@ export default function App() {
             />
           }
         />
+        <Route path="trocar-senha" element={user ? <TrocarSenha /> : <Login onLogin={handleLogin} />} />
         <Route path="*" element={<Login onLogin={handleLogin} />} />
       </Routes>
       {showInstrucoes && (
