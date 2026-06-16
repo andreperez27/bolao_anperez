@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useGrupo } from "../contexts/GrupoContext";
 
 export default function Login({ onLogin }) {
-  const { user, loading: authLoading, senhaPadrao, signIn, signUp, signInAdmin } = useAuth();
+  const { user, loading: authLoading, senhaPadrao, signIn, signUp, signInAdmin, signOut } = useAuth();
   const { grupo } = useGrupo();
   const [nome, setNome] = useState("");
   const [senha, setSenha] = useState("");
@@ -232,9 +232,14 @@ export default function Login({ onLogin }) {
             <div style={{ color: "#F0F4FF", textAlign: "center", marginBottom: 12 }}>
               Você já está logado como <strong>{user?.nome}</strong>
             </div>
-            <Btn onClick={() => onLogin({ isAdmin: false, senhaPadrao })} cor="#16a34a" style={{ width: "100%" }}>
-              Continuar
-            </Btn>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn onClick={() => onLogin({ isAdmin: false, senhaPadrao })} cor="#16a34a" style={{ flex: 1 }}>
+                Continuar
+              </Btn>
+              <Btn onClick={signOut} cor="#C8102E" style={{ flex: 1 }}>
+                Sair
+              </Btn>
+            </div>
           </>
         )}
       </Card>
