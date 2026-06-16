@@ -2,19 +2,19 @@ import { useState, useEffect, useCallback } from "react";
 import { getAdminData, getConfig, salvarAdminData } from "../services/admin";
 import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
 
-export function useRanking() {
+export function useRanking(grupoId = "geral") {
   const [resultados, setResultados] = useState({});
   const [campeoReal, setCampeoReal] = useState("");
   const [config, setConfigLocal] = useState({ valor_aposta: 20, api_url: "" });
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
 
   const loadData = useCallback(async () => {
-    const admin = await getAdminData();
+    const admin = await getAdminData(grupoId);
     setResultados(admin.resultados);
     setCampeoReal(admin.campeoReal);
-    const cfg = await getConfig();
+    const cfg = await getConfig(grupoId);
     setConfigLocal(cfg);
-  }, []);
+  }, [grupoId]);
 
   const autoFetchResultados = useCallback(async (url) => {
     try {
@@ -25,28 +25,26 @@ export function useRanking() {
       if (count > 0) {
         const mergeados = { ...resultados, ...novos };
         setResultados(mergeados);
-        salvarAdminData(mergeados, campeoReal).catch(() => {});
+        salvarAdminData(mergeados, campeoReal, grupoId).catch(() => {});
         setUltimaAtualizacao(new Date());
       }
     } catch {}
-  }, [resultados, campeoReal]);
+  }, [resultados, campeoReal, grupoId]);
 
   useEffect(() => {
     let ativo = true;
-
     async function carregar() {
-      const admin = await getAdminData();
+      const admin = await getAdminData(grupoId);
       if (!ativo) return;
       setResultados(admin.resultados);
       setCampeoReal(admin.campeoReal);
-      const cfg = await getConfig();
+      const cfg = await getConfig(grupoId);
       if (ativo) setConfigLocal(cfg);
     }
-
     carregar();
     const id = setInterval(carregar, 30000);
     return () => { ativo = false; clearInterval(id); };
-  }, []);
+  }, [grupoId]);
 
   useEffect(() => {
     if (!config.api_url) return;

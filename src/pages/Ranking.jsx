@@ -9,184 +9,29 @@ import { calcularPontos, pontosCampeaoPorFase } from "../utils/pontuacao";
 import { NOMES_IA } from "../services/ia";
 import { GroupSelector } from "../components/GroupSelector";
 import { useAuth } from "../contexts/AuthContext";
-import { listarTodosGrupos, criarGrupo, listarMembros, removerMembro, atualizarGrupo, excluirGrupo } from "../services/grupos";
 
 function SuperAdminPainel({ onVoltar }) {
-  const { signOut } = useAuth();
-  const [grupos, setGrupos] = React.useState([]);
-  const [loading, setLoading] = React.useState(false);
-  const [nome, setNome] = React.useState("");
-  const [slug, setSlug] = React.useState("");
-  const [admin, setAdmin] = React.useState("");
-  const [valor, setValor] = React.useState(20);
+  const { signOut, user, isAdmin } = useAuth();
   const [msg, setMsg] = React.useState("");
-  const [membrosAberto, setMembrosAberto] = React.useState(null);
-  const [membros, setMembros] = React.useState([]);
-  const [editando, setEditando] = React.useState(null);
-  const [excluindo, setExcluindo] = React.useState(null);
-
-  const carregar = React.useCallback(async () => {
-    const adminPass = prompt("Digite a senha de super admin:");
-    if (!adminPass) return;
-    setLoading(true);
-    try {
-      const data = await listarTodosGrupos(adminPass);
-      setGrupos(data || []);
-      setMsg("");
-    } catch (e) {
-      setMsg("Erro: " + e.message);
-      setGrupos([]);
-    }
-    setLoading(false);
-  }, []);
-
-  const criar = async () => {
-    if (!nome || !slug || !admin) { setMsg("Preencha nome, slug e admin."); return; }
-    const adminPass = prompt("Digite a senha de super admin para criar grupo:");
-    if (!adminPass) return;
-    try {
-      const res = await criarGrupo(nome, slug, admin, valor, adminPass);
-      if (res.aviso) {
-        setMsg(res.aviso);
-      } else {
-        setMsg("Grupo criado!");
-      }
-      setNome(""); setSlug(""); setAdmin(""); setValor(20);
-      carregar();
-    } catch (e) { setMsg("Erro: " + e.message); }
-  };
-
-  const inputStyle = { width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14, fontWeight: 500, boxSizing: "border-box" };
-  const btnStyle = { background: "transparent", border: "none", cursor: "pointer", fontSize: 13, padding: "4px 8px", borderRadius: 6 };
-
-  const verMembros = async (g) => {
-    if (membrosAberto === g.id) { setMembrosAberto(null); return; }
-    try {
-      const data = await listarMembros(g.id);
-      setMembros(data || []);
-      setMembrosAberto(g.id);
-    } catch { setMembros([]); }
-  };
-
-  const abrirEditar = (g) => {
-    setEditando(editando?.id === g.id ? null : {
-      id: g.id,
-      nome: g.nome,
-      slug: g.slug,
-      admin_nome: g.admin_nome || g.admin || "",
-      valor_aposta: g.valor_aposta || 20,
-      pontos_cheio: g.pontos_cheio || 5,
-      pontos_vencedor: g.pontos_vencedor || 3,
-    });
-  };
-
-  const salvarEdicao = async (g) => {
-    const adminPass = prompt("Digite a senha de super admin para salvar alterações:");
-    if (!adminPass) return;
-    try {
-      await atualizarGrupo(g.id, editando.admin_nome, editando, adminPass);
-      alert("Grupo atualizado!");
-      setEditando(null);
-      carregar();
-    } catch (e) { alert("Erro: " + e.message); }
-  };
-
-  const handleExcluir = async (g) => {
-    if (!window.confirm(`EXCLUIR PERMANENTEMENTE o grupo "${g.nome}"?\n\nIsso apaga: cartelas, membros e convites.\n\nNÃO pode ser desfeito.`)) return;
-    const adminPass = prompt("Digite a senha de super admin para confirmar exclusão:");
-    if (!adminPass) return;
-    setExcluindo(g.id);
-    try {
-      await excluirGrupo(g.id, adminPass);
-      alert(`Grupo "${g.nome}" excluído!`);
-      carregar();
-    } catch (e) { alert("Erro: " + e.message); }
-    setExcluindo(null);
-  };
 
   return (
     <div style={{ minHeight: "100vh", background: "#0A0E1A", paddingBottom: 60 }}>
       <div style={{ background: "linear-gradient(135deg, #0033A0, #001a66)", padding: "16px 20px 14px", borderBottom: "2px solid #FFD700" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <button onClick={onVoltar} style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-            {"\u2190"} Voltar
-          </button>
-          <button onClick={signOut} style={{ background: "#C8102E", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-            Sair
-          </button>
+          <button onClick={onVoltar} style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{"\u2190"} Voltar</button>
+          <button onClick={signOut} style={{ background: "#C8102E", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Sair</button>
         </div>
         <div style={{ color: "#FFD700", fontSize: 11, fontWeight: 700, letterSpacing: 2 }}>BOLÃO DA COPA 2026</div>
-        <div style={{ color: "#F0F4FF", fontSize: 20, fontWeight: 900, marginTop: 4 }}>Painel do Super Administrador</div>
+        <div style={{ color: "#F0F4FF", fontSize: 20, fontWeight: 900, marginTop: 4 }}>Painel do Administrador</div>
       </div>
       <div style={{ padding: "14px 16px 0", maxWidth: 600, margin: "0 auto" }}>
         {msg && <div style={{ color: msg.includes("Erro") ? "#C8102E" : "#10b981", fontSize: 12, marginBottom: 8 }}>{msg}</div>}
-
-        <div style={{ background: "#111827", border: "1px solid #1E2A45", borderRadius: 12, padding: 16, marginBottom: 14 }}>
-          <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>Criar Novo Grupo</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <input placeholder="Nome do grupo" value={nome} onChange={e => setNome(e.target.value)} style={inputStyle} />
-            <input placeholder="Slug (ex: familia)" value={slug} onChange={e => setSlug(e.target.value)} style={inputStyle} />
-            <input placeholder="Admin (nome do jogador)" value={admin} onChange={e => setAdmin(e.target.value)} style={inputStyle} />
-            <input type="number" placeholder="Valor aposta (R$)" value={valor} onChange={e => setValor(Number(e.target.value))} style={inputStyle} />
-            <button onClick={criar} style={{ background: "#C8102E", border: "none", borderRadius: 8, color: "#fff", padding: "10px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Criar Grupo</button>
+        <Card>
+          <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 8 }}>Você está logado como administrador.</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn onClick={() => window.location.href = window.location.pathname.replace(/\/admin.*/, "/ranking")} cor="#0033A0" style={{ flex: 1 }}>Ver Ranking</Btn>
           </div>
-        </div>
-
-        <div style={{ background: "#111827", border: "1px solid #1E2A45", borderRadius: 12, padding: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14 }}>Grupos Existentes</div>
-            <button onClick={carregar} style={{ background: "transparent", border: "1px solid #1E2A45", borderRadius: 6, color: "#8B9CC8", padding: "6px 10px", fontSize: 11, cursor: "pointer" }}>{loading ? "..." : "Carregar"}</button>
-          </div>
-          {grupos.length === 0 && !loading ? (
-            <div style={{ color: "#8B9CC8", fontSize: 12, padding: 8 }}>Clique em "Carregar" e digite a senha de admin.</div>
-          ) : grupos.map(g => (
-            <div key={g.id} style={{ background: "#1a2234", borderRadius: 8, padding: 12, marginBottom: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <span style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 14 }}>{g.nome}</span>
-                  <span style={{ color: "#8B9CC8", fontSize: 11, marginLeft: 8 }}>/{g.slug}</span>
-                </div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button onClick={() => abrirEditar(g)} style={{ ...btnStyle, color: "#1a4fd6" }}>Editar</button>
-                  <button onClick={() => handleExcluir(g)} style={{ ...btnStyle, color: "#C8102E" }}>{excluindo === g.id ? "..." : "Excluir"}</button>
-                  <button onClick={() => verMembros(g)} style={{ ...btnStyle, color: "#10b981" }}>Membros</button>
-                </div>
-              </div>
-              <div style={{ color: "#8B9CC8", fontSize: 11, marginTop: 4 }}>
-                Admin: {g.admin_nome || g.admin || "—"} | Valor: R$ {g.valor_aposta}
-              </div>
-
-              {editando && editando.id === g.id && (
-                <div style={{ marginTop: 10, padding: 10, background: "#0d1b2a", borderRadius: 8 }}>
-                  <div style={{ color: "#FFD700", fontSize: 11, marginBottom: 6 }}>Editar {g.nome}</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <input type="number" placeholder="Valor aposta" value={editando.valor_aposta} onChange={e => setEditando({ ...editando, valor_aposta: Number(e.target.value) })} style={inputStyle} />
-                    <input type="number" placeholder="Pts acerto cheio" value={editando.pontos_cheio} onChange={e => setEditando({ ...editando, pontos_cheio: Number(e.target.value) })} style={inputStyle} />
-                    <input type="number" placeholder="Pts vencedor certo" value={editando.pontos_vencedor} onChange={e => setEditando({ ...editando, pontos_vencedor: Number(e.target.value) })} style={inputStyle} />
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => salvarEdicao(g)} style={{ background: "#10b981", border: "none", borderRadius: 6, color: "#fff", padding: "8px", fontWeight: 700, fontSize: 12, cursor: "pointer", flex: 1 }}>Salvar</button>
-                      <button onClick={() => setEditando(null)} style={{ background: "#555", border: "none", borderRadius: 6, color: "#fff", padding: "8px", fontWeight: 700, fontSize: 12, cursor: "pointer", flex: 1 }}>Cancelar</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {membrosAberto === g.id && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ color: "#8B9CC8", fontSize: 11, marginBottom: 4 }}>Membros ({membros.length}):</div>
-                  {membros.length === 0 ? (
-                    <div style={{ color: "#8B9CC8", fontSize: 11 }}>Nenhum membro.</div>
-                  ) : membros.map((m, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #1E2A4520" }}>
-                      <span style={{ color: "#F0F4FF", fontSize: 13 }}>{m.usuario_id || m.nome}</span>
-                      <span style={{ color: "#8B9CC8", fontSize: 11 }}>{m.role}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        </Card>
       </div>
     </div>
   );
@@ -197,7 +42,6 @@ export default function Ranking({
   resultados,
   campeoReal,
   isAdmin,
-  isGroupAdmin,
   config,
   ultimaAtualizacao,
   onVoltar,
@@ -213,13 +57,7 @@ export default function Ranking({
 
   const ranking = Object.values(
     cartelas.filter((c) => !NOMES_IA.includes(c.participante)).reduce((acc, c) => {
-      let pts = 0;
-      let total = 0;
-      let acertos = 0;
-      let placaresExatos = 0;
-      let diferencasCertas = 0;
-      let vencedoresCertos = 0;
-      let empatesPalpitados = 0;
+      let pts = 0, total = 0, acertos = 0, placaresExatos = 0, diferencasCertas = 0, vencedoresCertos = 0, empatesPalpitados = 0;
       for (const [k, v] of Object.entries(c.palpites || {})) {
         if (k === "__campeo") continue;
         total++;
@@ -227,44 +65,32 @@ export default function Ranking({
         const { pts: pt, tipo } = calcularPontos(v, r);
         pts += pt;
         if (tipo !== "errou" && tipo !== "pendente") acertos++;
-        if (tipo === "placar_exato")    placaresExatos++;
+        if (tipo === "placar_exato") placaresExatos++;
         if (tipo === "diferenca_certa") diferencasCertas++;
-        if (tipo === "vencedor_certo")  vencedoresCertos++;
+        if (tipo === "vencedor_certo") vencedoresCertos++;
         if (v?.gols_a !== undefined && v.gols_a === v.gols_b) empatesPalpitados++;
       }
-      if (campeoReal && c.campeao === campeoReal) {
-        pts += pontosCampeaoPorFase(c.campeao_fase || "grupos");
-      }
+      if (campeoReal && c.campeao === campeoReal) pts += pontosCampeaoPorFase(c.campeao_fase || "grupos");
       pts += Number(config?.bonus_geral) || 0;
       const existente = acc[c.participante];
       if (!existente || pts > existente.pts) {
-        acc[c.participante] = {
-          ...c, pts, total, acertos,
-          placaresExatos, diferencasCertas,
-          vencedoresCertos, empatesPalpitados,
-        };
+        acc[c.participante] = { ...c, pts, total, acertos, placaresExatos, diferencasCertas, vencedoresCertos, empatesPalpitados };
       }
       return acc;
     }, {})
   ).sort((a, b) => {
-    if (b.pts !== a.pts)                           return b.pts - a.pts;
-    if (b.placaresExatos !== a.placaresExatos)     return b.placaresExatos - a.placaresExatos;
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.placaresExatos !== a.placaresExatos) return b.placaresExatos - a.placaresExatos;
     if (b.diferencasCertas !== a.diferencasCertas) return b.diferencasCertas - a.diferencasCertas;
     if (b.vencedoresCertos !== a.vencedoresCertos) return b.vencedoresCertos - a.vencedoresCertos;
     if (a.empatesPalpitados !== b.empatesPalpitados) return a.empatesPalpitados - b.empatesPalpitados;
-    if (b.acertos !== a.acertos)                   return b.acertos - a.acertos;
+    if (b.acertos !== a.acertos) return b.acertos - a.acertos;
     return (a.participante || "").localeCompare(b.participante || "", "pt-BR");
   });
 
   const iasNoRanking = Object.values(
     cartelas.filter((c) => NOMES_IA.includes(c.participante)).reduce((acc, c) => {
-      let pts = 0;
-      let total = 0;
-      let acertos = 0;
-      let placaresExatos = 0;
-      let diferencasCertas = 0;
-      let vencedoresCertos = 0;
-      let empatesPalpitados = 0;
+      let pts = 0, total = 0, acertos = 0, placaresExatos = 0, diferencasCertas = 0, vencedoresCertos = 0, empatesPalpitados = 0;
       for (const [k, v] of Object.entries(c.palpites || {})) {
         if (k === "__campeo") continue;
         total++;
@@ -272,32 +98,26 @@ export default function Ranking({
         const { pts: pt, tipo } = calcularPontos(v, r);
         pts += pt;
         if (tipo !== "errou" && tipo !== "pendente") acertos++;
-        if (tipo === "placar_exato")    placaresExatos++;
+        if (tipo === "placar_exato") placaresExatos++;
         if (tipo === "diferenca_certa") diferencasCertas++;
-        if (tipo === "vencedor_certo")  vencedoresCertos++;
+        if (tipo === "vencedor_certo") vencedoresCertos++;
         if (v?.gols_a !== undefined && v.gols_a === v.gols_b) empatesPalpitados++;
       }
-      if (campeoReal && c.campeao === campeoReal) {
-        pts += pontosCampeaoPorFase(c.campeao_fase || "grupos");
-      }
+      if (campeoReal && c.campeao === campeoReal) pts += pontosCampeaoPorFase(c.campeao_fase || "grupos");
       pts += Number(config?.bonus_geral) || 0;
       const existente = acc[c.participante];
       if (!existente || pts > existente.pts) {
-        acc[c.participante] = {
-          ...c, pts, total, acertos,
-          placaresExatos, diferencasCertas,
-          vencedoresCertos, empatesPalpitados,
-        };
+        acc[c.participante] = { ...c, pts, total, acertos, placaresExatos, diferencasCertas, vencedoresCertos, empatesPalpitados };
       }
       return acc;
     }, {})
   ).sort((a, b) => {
-    if (b.pts !== a.pts)                           return b.pts - a.pts;
-    if (b.placaresExatos !== a.placaresExatos)     return b.placaresExatos - a.placaresExatos;
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.placaresExatos !== a.placaresExatos) return b.placaresExatos - a.placaresExatos;
     if (b.diferencasCertas !== a.diferencasCertas) return b.diferencasCertas - a.diferencasCertas;
     if (b.vencedoresCertos !== a.vencedoresCertos) return b.vencedoresCertos - a.vencedoresCertos;
     if (a.empatesPalpitados !== b.empatesPalpitados) return a.empatesPalpitados - b.empatesPalpitados;
-    if (b.acertos !== a.acertos)                   return b.acertos - a.acertos;
+    if (b.acertos !== a.acertos) return b.acertos - a.acertos;
     return (a.participante || "").localeCompare(b.participante || "", "pt-BR");
   });
 
@@ -307,70 +127,14 @@ export default function Ranking({
 
   return (
     <div className="scroll-suave" style={{ minHeight: "100vh", background: "#0A0E1A", paddingBottom: 60 }}>
-      <div
-        style={{
-          background: "linear-gradient(135deg, #B8860B, #FFD700)",
-          padding: "16px 20px 14px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 6,
-          }}
-        >
-          <button
-            onClick={onVoltar}
-            style={{
-              background: "rgba(0,0,0,0.25)",
-              color: "#000",
-              border: "none",
-              borderRadius: 8,
-              padding: "6px 12px",
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: "pointer",
-            }}
-          >
-            {"\u2190"} Voltar
-          </button>
-          {onVerTabela && (
-            <button
-              onClick={onVerTabela}
-              style={{
-                background: "rgba(0,0,0,0.15)",
-                border: "1px solid rgba(0,0,0,0.3)",
-                borderRadius: 8,
-                color: "#000",
-                padding: "6px 10px",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              {"\uD83D\uDCC5"} Tabela
-            </button>
-          )}
-          <button
-            onClick={onShowInstrucoes}
-            style={{
-              background: "rgba(0,0,0,0.15)",
-              border: "none",
-              borderRadius: 8,
-              padding: "6px 10px",
-              fontSize: 18,
-              cursor: "pointer",
-            }}
-          >
-            {"\u2753"}
-          </button>
+      <div style={{ background: "linear-gradient(135deg, #B8860B, #FFD700)", padding: "16px 20px 14px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <button onClick={onVoltar} style={{ background: "rgba(0,0,0,0.25)", color: "#000", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{"\u2190"} Voltar</button>
+          {onVerTabela && <button onClick={onVerTabela} style={{ background: "rgba(0,0,0,0.15)", border: "1px solid rgba(0,0,0,0.3)", borderRadius: 8, color: "#000", padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{"\uD83D\uDCC5"} Tabela</button>}
+          <button onClick={onShowInstrucoes} style={{ background: "rgba(0,0,0,0.15)", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 18, cursor: "pointer" }}>{"\u2753"}</button>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ color: "#000", fontSize: 22, fontWeight: 900 }}>
-            {"\uD83C\uDFC5"} Ranking do Bolão
-          </div>
+          <div style={{ color: "#000", fontSize: 22, fontWeight: 900 }}>{"\uD83C\uDFC5"} Ranking do Bolão</div>
           <GroupSelector />
         </div>
         <div style={{ color: "rgba(0,0,0,0.6)", fontSize: 13 }}>
@@ -380,72 +144,35 @@ export default function Ranking({
       </div>
 
       <div style={{ padding: "14px 16px 0" }}>
-        <PainelFinanceiro
-          totalParticipantes={new Set(cartelas.filter((c) => !NOMES_IA.includes(c.participante)).map((c) => c.participante)).size}
-          valorAposta={config?.valor_aposta || 20}
-        />
+        <PainelFinanceiro totalParticipantes={new Set(cartelas.filter((c) => !NOMES_IA.includes(c.participante)).map((c) => c.participante)).size} valorAposta={config?.valor_aposta || 20} />
 
         {ranking.length > 0 && (
-          <div
-            style={{
-              background: "linear-gradient(135deg, #1a1a2e, #16213e)",
-              border: "1px solid #1E2A45",
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 14,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "flex-end",
-                gap: 12,
-                padding: "8px 0",
-              }}
-            >
+          <div style={{ background: "linear-gradient(135deg, #1a1a2e, #16213e)", border: "1px solid #1E2A45", borderRadius: 12, padding: 16, marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", gap: 12, padding: "8px 0" }}>
               {segundo ? (
                 <div style={{ textAlign: "center", flex: 1 }}>
                   <div style={{ fontSize: 28 }}>{"\uD83E\uDD48"}</div>
-                  <div style={{ color: "#F0F4FF", fontSize: 13, fontWeight: 800, marginTop: 4 }}>
-                    {segundo.participante}
-                  </div>
-                  <div style={{ color: "#FFD700", fontSize: 18, fontWeight: 900 }}>
-                    {segundo.pts}
-                  </div>
+                  <div style={{ color: "#F0F4FF", fontSize: 13, fontWeight: 800, marginTop: 4 }}>{segundo.participante}</div>
+                  <div style={{ color: "#FFD700", fontSize: 18, fontWeight: 900 }}>{segundo.pts}</div>
                   <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
                 </div>
-              ) : (
-                <div style={{ flex: 1 }} />
-              )}
+              ) : <div style={{ flex: 1 }} />}
               {primeiro ? (
                 <div style={{ textAlign: "center", flex: 1.3 }}>
                   <div style={{ fontSize: 36 }}>{"\uD83E\uDD47"}</div>
-                  <div style={{ color: "#F0F4FF", fontSize: 15, fontWeight: 800, marginTop: 4 }}>
-                    {primeiro.participante}
-                  </div>
-                  <div style={{ color: "#FFD700", fontSize: 22, fontWeight: 900 }}>
-                    {primeiro.pts}
-                  </div>
+                  <div style={{ color: "#F0F4FF", fontSize: 15, fontWeight: 800, marginTop: 4 }}>{primeiro.participante}</div>
+                  <div style={{ color: "#FFD700", fontSize: 22, fontWeight: 900 }}>{primeiro.pts}</div>
                   <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
                 </div>
-              ) : (
-                <div style={{ flex: 1.3 }} />
-              )}
+              ) : <div style={{ flex: 1.3 }} />}
               {terceiro ? (
                 <div style={{ textAlign: "center", flex: 1 }}>
                   <div style={{ fontSize: 28 }}>{"\uD83E\uDD49"}</div>
-                  <div style={{ color: "#F0F4FF", fontSize: 13, fontWeight: 800, marginTop: 4 }}>
-                    {terceiro.participante}
-                  </div>
-                  <div style={{ color: "#FFD700", fontSize: 18, fontWeight: 900 }}>
-                    {terceiro.pts}
-                  </div>
+                  <div style={{ color: "#F0F4FF", fontSize: 13, fontWeight: 800, marginTop: 4 }}>{terceiro.participante}</div>
+                  <div style={{ color: "#FFD700", fontSize: 18, fontWeight: 900 }}>{terceiro.pts}</div>
                   <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
                 </div>
-              ) : (
-                <div style={{ flex: 1 }} />
-              )}
+              ) : <div style={{ flex: 1 }} />}
             </div>
           </div>
         )}
@@ -454,86 +181,21 @@ export default function Ranking({
 
         {(() => {
           const renderCard = (c, idx, isIA) => (
-            <div
-              key={c.id}
-              onClick={() => onVerCartela?.(c)}
-              style={{
-                cursor: "pointer",
-                background: isIA ? "#0d1b2a" : "#111827",
-                border: isIA ? "1px solid #4285F466" : "1px solid #1E2A45",
-                borderRadius: 12,
-                padding: 16,
-                marginBottom: 8,
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              <div
-                style={{
-                  color: !isIA && idx < 3 ? "#FFD700" : "#8B9CC8",
-                  fontWeight: 900,
-                  fontSize: 18,
-                  width: 32,
-                  textAlign: "center",
-                }}
-              >
-                {!isIA && idx < 3 ? medalhas[idx] : `${idx + 1}º`}
-              </div>
+            <div key={c.id} onClick={() => onVerCartela?.(c)} style={{ cursor: "pointer", background: isIA ? "#0d1b2a" : "#111827", border: isIA ? "1px solid #4285F466" : "1px solid #1E2A45", borderRadius: 12, padding: 16, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ color: !isIA && idx < 3 ? "#FFD700" : "#8B9CC8", fontWeight: 900, fontSize: 18, width: 32, textAlign: "center" }}>{!isIA && idx < 3 ? medalhas[idx] : `${idx + 1}º`}</div>
               <div style={{ flex: 1 }}>
-                <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>
-                  {c.participante}{" "}
-                  {isIA && (
-                    <span style={{ background: "#4285F4", color: "#fff", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, marginLeft: 4, verticalAlign: "middle" }}>
-                      IA
-                    </span>
-                  )}
-                  <span style={{ color: "#8B9CC8", fontWeight: 400, fontSize: 12 }}>
-                    ({c.nome || "Cartela"})
-                  </span>
-                </div>
-                <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>
-                  {c.acertos}/{c.total} acertos{" "}
-                  {c.placaresExatos > 0 && (
-                    <span style={{ color: "#FFD700", fontWeight: 700 }}>
-                      {" "}· 🎯 {c.placaresExatos} exatos
-                    </span>
-                  )}
-                  {c.empatesPalpitados > 0 && (
-                    <span style={{ color: "#8B9CC8" }}>
-                      {" "}· ={c.empatesPalpitados} empates apostados
-                    </span>
-                  )}
-                  {" "}· Campeão: {c.campeao || "—"}{" "}
-                  {c.campeao === campeoReal && campeoReal
-                    ? "\u2705 +" + pontosCampeaoPorFase(c.campeao_fase || "grupos")
-                    : ""}
-                  <span style={{ marginLeft: 6 }}>
-                    <StatusBadge status={c.status} />
-                  </span>
-                </div>
+                <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>{c.participante} {isIA && <span style={{ background: "#4285F4", color: "#fff", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, marginLeft: 4, verticalAlign: "middle" }}>IA</span>}<span style={{ color: "#8B9CC8", fontWeight: 400, fontSize: 12 }}>({c.nome || "Cartela"})</span></div>
+                <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>{c.acertos}/{c.total} acertos {c.placaresExatos > 0 && <span style={{ color: "#FFD700", fontWeight: 700 }}> · 🎯 {c.placaresExatos} exatos</span>}{c.empatesPalpitados > 0 && <span style={{ color: "#8B9CC8" }}> · ={c.empatesPalpitados} empates apostados</span>} · Campeão: {c.campeao || "—"} {c.campeao === campeoReal && campeoReal ? " ✅ +" + pontosCampeaoPorFase(c.campeao_fase || "grupos") : ""}<span style={{ marginLeft: 6 }}><StatusBadge status={c.status} /></span></div>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ color: "#FFD700", fontWeight: 900, fontSize: 20 }}>{c.pts}</div>
-                <div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div>
-              </div>
+              <div style={{ textAlign: "right" }}><div style={{ color: "#FFD700", fontWeight: 900, fontSize: 20 }}>{c.pts}</div><div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div></div>
             </div>
           );
 
           return (
             <>
-              {ranking.length > 0 ? ranking.map((c, idx) => renderCard(c, idx, false)) : (
-                <div style={{ textAlign: "center", color: "#8B9CC8", padding: 40 }}>
-                  Nenhuma cartela ainda
-                </div>
-              )}
+              {ranking.length > 0 ? ranking.map((c, idx) => renderCard(c, idx, false)) : <div style={{ textAlign: "center", color: "#8B9CC8", padding: 40 }}>Nenhuma cartela ainda</div>}
               {iasNoRanking.length > 0 && (
-                <>
-                  <div style={{ color: "#8B9CC8", fontSize: 13, fontWeight: 700, marginBottom: 8, marginTop: 16, paddingTop: 12, borderTop: "1px solid #1E2A45" }}>
-                    {"\uD83E\uDD16"} Bancada de IAs
-                  </div>
-                  {iasNoRanking.map((c, idx) => renderCard(c, idx, true))}
-                </>
+                <><div style={{ color: "#8B9CC8", fontSize: 13, fontWeight: 700, marginBottom: 8, marginTop: 16, paddingTop: 12, borderTop: "1px solid #1E2A45" }}>{"\uD83E\uDD16"} Bancada de IAs</div>{iasNoRanking.map((c, idx) => renderCard(c, idx, true))}</>
               )}
             </>
           );

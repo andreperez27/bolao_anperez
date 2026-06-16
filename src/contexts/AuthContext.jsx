@@ -1,78 +1,69 @@
-import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from "react";
-import { getSession, limparSession } from "../services/auth";
+import React, { createContext, useState, useEffect, useCallback, useContext } from "react";
+import { getSession, limparSession, signIn as signInSvc, signUp as signUpSvc, signInAdmin as signInAdminSvc } from "../services/auth";
 import { getJogador } from "../services/jogadores";
-import { listarGrupos } from "../services/grupos";
+import { useGrupo } from "./GrupoContext";
 
 const AuthContext = createContext(null);
-const GRUPO_STORAGE_KEY = "bolao_grupo_ativo";
 
 export function AuthProvider({ children }) {
+  const { grupoId } = useGrupo();
   const [user, setUser] = useState(null);
   const [jogador, setJogador] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [meusGrupos, setMeusGrupos] = useState([]);
-  const [grupoAtivo, setGrupoAtivoState] = useState(() => {
-    const saved = localStorage.getItem(GRUPO_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : null;
-  });
-
-  const carregarGrupos = useCallback(async (nome) => {
-    try {
-      const grupos = await listarGrupos(nome);
-      setMeusGrupos(grupos || []);
-      const saved = localStorage.getItem(GRUPO_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const aindaExiste = (grupos || []).find((g) => g.id === parsed.id);
-        if (aindaExiste) return;
-      }
-      if (grupos?.length > 0) {
-        const alvo = grupos[0];
-        localStorage.setItem(GRUPO_STORAGE_KEY, JSON.stringify(alvo));
-        setGrupoAtivoState(alvo);
-      }
-    } catch {}
-  }, []);
 
   useEffect(() => {
+    setLoading(true);
     const session = getSession();
     if (session) {
       setUser(session);
       setIsAdmin(session.isAdmin === true);
       if (session.nome && !session.isAdmin) {
-        getJogador(session.nome).then((p) => {
-          setJogador(p);
-          carregarGrupos(session.nome);
-        }).catch(() => {});
+        getJogador(session.nome, grupoId).then(setJogador).catch(() => {});
       }
     }
     setLoading(false);
-  }, [carregarGrupos]);
+  }, [grupoId]);
 
-  const setGrupoAtivo = useCallback((grupo) => {
-    localStorage.setItem(GRUPO_STORAGE_KEY, JSON.stringify(grupo));
-    setGrupoAtivoState(grupo);
-  }, []);
+  const signIn = useCallback(async (nome, senha) => {
+    const data = await signInSvc({ nome, senha, grupoId });
+    setUser(data);
+    setIsAdmin(false);
+    if (data.nome) {
+      const p = await getJogador(data.nome, grupoId).catch(() => null);
+      setJogador(p);
+    }
+    return data;
+  }, [grupoId]);
 
-  const signOut = useCallback(async () => {
+  const signUp = useCallback(async (nome, senha) => {
+    const data = await signUpSvc({ nome, senha, grupoId });
+    setUser(data);
+    setIsAdmin(false);
+    return data;
+  }, [grupoId]);
+
+  const signInAdmin = useCallback(async (senha) => {
+    const data = await signInAdminSvc({ senha, grupoId });
+    setUser(data);
+    setIsAdmin(true);
+    return data;
+  }, [grupoId]);
+
+  const signOut = useCallback(() => {
     limparSession();
     setUser(null);
     setJogador(null);
     setIsAdmin(false);
-    setMeusGrupos([]);
-    localStorage.removeItem(GRUPO_STORAGE_KEY);
-    setGrupoAtivoState(null);
   }, []);
 
   const refreshJogador = useCallback(async () => {
     const session = getSession();
     if (session?.nome && !session.isAdmin) {
-      const p = await getJogador(session.nome).catch(() => null);
+      const p = await getJogador(session.nome, grupoId).catch(() => null);
       setJogador(p);
-      carregarGrupos(session.nome);
     }
-  }, [carregarGrupos]);
+  }, [grupoId]);
 
   const refreshUser = useCallback(() => {
     const session = getSession();
@@ -80,34 +71,17 @@ export function AuthProvider({ children }) {
       setUser(session);
       setIsAdmin(session.isAdmin === true);
       if (session.nome && !session.isAdmin) {
-        getJogador(session.nome).then((p) => {
-          setJogador(p);
-          carregarGrupos(session.nome);
-        }).catch(() => {});
+        getJogador(session.nome, grupoId).then(setJogador).catch(() => {});
       }
     }
-  }, [carregarGrupos]);
-
-  const isGroupAdmin = useMemo(() => {
-    if (isAdmin || !grupoAtivo?.id) return false;
-    const grupo = (meusGrupos || []).find(g => g.id === grupoAtivo.id);
-    return grupo?.role === 'admin';
-  }, [isAdmin, grupoAtivo, meusGrupos]);
+  }, [grupoId]);
 
   return (
     <AuthContext.Provider
       value={{
-        user,
-        jogador,
-        isAdmin,
-        isGroupAdmin,
-        loading,
-        meusGrupos,
-        grupoAtivo,
-        setGrupoAtivo,
-        signOut,
-        refreshJogador,
-        refreshUser,
+        user, jogador, isAdmin, loading,
+        signIn, signUp, signInAdmin, signOut,
+        refreshJogador, refreshUser,
       }}
     >
       {children}

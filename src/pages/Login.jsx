@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Card } from "../components/Card";
 import { Btn } from "../components/Btn";
-import { signIn, signUp, signInAdmin } from "../services/auth";
 import { useAuth } from "../contexts/AuthContext";
+import { useGrupo } from "../contexts/GrupoContext";
 
 export default function Login({ onLogin }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signIn, signUp, signInAdmin } = useAuth();
+  const { grupo } = useGrupo();
   const [nome, setNome] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmSenha, setConfirmSenha] = useState("");
@@ -20,7 +21,7 @@ export default function Login({ onLogin }) {
     setSubmitting(true);
     setErro("");
     try {
-      await signIn({ nome: nome.trim(), senha });
+      await signIn(nome.trim(), senha);
       onLogin({ isAdmin: false });
     } catch (e) {
       setErro(e.message);
@@ -41,7 +42,7 @@ export default function Login({ onLogin }) {
     setSubmitting(true);
     setErro("");
     try {
-      await signUp({ nome: nome.trim(), senha });
+      await signUp(nome.trim(), senha);
       setErro("Conta criada! Bem-vindo ao bolão.");
       setModo(null);
     } catch (e) {
@@ -55,7 +56,7 @@ export default function Login({ onLogin }) {
     setSubmitting(true);
     setErro("");
     try {
-      await signInAdmin({ senha: adminSenha });
+      await signInAdmin(adminSenha);
       onLogin({ isAdmin: true });
     } catch (e) {
       setErro(e.message);
@@ -106,6 +107,9 @@ export default function Login({ onLogin }) {
       >
         BOLÃO DA COPA 2026
       </h1>
+      <div style={{ color: "#10b981", fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+        {grupo?.nome || "Bolão Geral"}
+      </div>
       <p style={{ color: "#8B9CC8", marginBottom: 32, fontSize: 15 }}>
         Bolão 2026 {"—"} Faça seus palpites!
       </p>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
+import { useGrupo } from "./contexts/GrupoContext";
 import { useCartelas } from "./hooks/useCartelas";
 import { useRanking } from "./hooks/useRanking";
 import { salvarAdminData } from "./services/admin";
@@ -12,7 +13,6 @@ import MinhasCartelas from "./pages/MinhasCartelas";
 import PreencherCartela from "./pages/PreencherCartela";
 import RankingPage from "./pages/Ranking";
 import Tabela from "./pages/Tabela";
-import Convite from "./pages/Convite";
 import { ModalInstrucoes } from "./components/ModalInstrucoes";
 import { PrintArea } from "./components/PrintArea";
 import { OfflineBanner } from "./components/OfflineBanner";
@@ -20,10 +20,10 @@ import { OfflineBanner } from "./components/OfflineBanner";
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, jogador, isAdmin, isGroupAdmin, grupoAtivo, signOut, refreshJogador, refreshUser } = useAuth();
-  const grupoId = grupoAtivo?.id || '00000000-0000-0000-0000-000000000000';
+  const { user, jogador, isAdmin, signOut, refreshJogador, refreshUser } = useAuth();
+  const { grupoId, grupo } = useGrupo();
   const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas(grupoId);
-  const { resultados, campeoReal, config, updateResultados, loadData, ultimaAtualizacao } = useRanking();
+  const { resultados, campeoReal, config, updateResultados, loadData, ultimaAtualizacao } = useRanking(grupoId);
 
   const [cartelaEditando, setCartelaEditando] = useState(null);
   const [cartelaPrint, setCartelaPrint] = useState(null);
@@ -37,23 +37,13 @@ export default function App() {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (location.pathname === "/") {
-      if (user) {
-        navigate("/minhas-cartelas", { replace: true });
-      } else {
-        navigate("/login", { replace: true });
-      }
-    }
-  }, [user, location.pathname, navigate]);
-
   const handleLogin = useCallback(
     async ({ isAdmin: adminFlag }) => {
       refreshUser();
       if (adminFlag) {
-        navigate("/admin", { replace: true });
+        navigate("admin", { replace: true });
       } else {
-        navigate("/minhas-cartelas", { replace: true });
+        navigate("minhas-cartelas", { replace: true });
       }
     },
     [navigate, refreshUser]
@@ -61,22 +51,22 @@ export default function App() {
 
   const handleSair = useCallback(async () => {
     await signOut();
-    navigate("/login", { replace: true });
+    navigate("login", { replace: true });
   }, [signOut, navigate]);
 
   const handleExcluirConta = useCallback(async () => {
-    const confirm = window.confirm("Tem certeza que deseja excluir sua conta? Todos os seus dados serão perdidos.");
+    const confirm = window.confirm("Tem certeza que deseja excluir sua conta?");
     if (!confirm) return;
     const minhasCartelas = cartelas.filter((c) => c.participante === jogador?.nome);
     for (const c of minhasCartelas) {
       try { await deletarCartela(c.id); } catch {}
     }
     try {
-      await deletarJogador(user?.nome);
+      await deletarJogador(user?.nome, grupoId);
     } catch {}
     await signOut();
-    navigate("/login", { replace: true });
-  }, [user, jogador, cartelas, signOut, navigate]);
+    navigate("login", { replace: true });
+  }, [user, jogador, cartelas, grupoId, signOut, navigate]);
 
   const handleSalvarCartela = useCallback(
     async (cartela) => {
@@ -85,7 +75,7 @@ export default function App() {
         nova.campeao_fase = getFaseAtual(resultados);
       }
       await salvarCartelaHook(nova);
-      navigate("/minhas-cartelas", { replace: true });
+      navigate("minhas-cartelas", { replace: true });
     },
     [resultados, salvarCartelaHook, navigate]
   );
@@ -100,9 +90,9 @@ export default function App() {
   const handleResultadosChange = useCallback(
     (novosResultados, novoCampeo) => {
       updateResultados(novosResultados, novoCampeo);
-      salvarAdminData(novosResultados, novoCampeo).catch(() => {});
+      salvarAdminData(novosResultados, novoCampeo, grupoId).catch(() => {});
     },
-    [updateResultados]
+    [updateResultados, grupoId]
   );
 
   const handlePrintCartela = useCallback((cartela) => {
@@ -117,12 +107,10 @@ export default function App() {
         const nomePart = jogador?.nome || user?.nome || "";
         const dados = parseCartelaHTML(text, nomePart);
         const msgErros = dados.erros?.length ? dados.erros.join("\n") : "";
-
         if (Object.keys(dados.palpites).length === 0) {
-          alert("Nenhum palpite válido encontrado no arquivo." + (msgErros ? "\n\n" + msgErros : ""));
+          alert("Nenhum palpite válido encontrado." + (msgErros ? "\n\n" + msgErros : ""));
           return;
         }
-
         await salvarCartelaHook({
           id: "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
           nome: dados.nome || "Importada",
@@ -132,9 +120,8 @@ export default function App() {
           participante: nomePart,
           status: "aguardando",
         });
-
         let msg = `Nova cartela importada com ${Object.keys(dados.palpites).length} palpite(s)!`;
-        if (dados.dataEmitido) msg += ` Data de exportação: ${dados.dataEmitido.toLocaleDateString("pt-BR")}.`;
+        if (dados.dataEmitido) msg += ` Data: ${dados.dataEmitido.toLocaleDateString("pt-BR")}.`;
         if (msgErros) msg += `\n\nAvisos:\n${msgErros}`;
         alert(msg);
       } catch (e) {
@@ -152,38 +139,36 @@ export default function App() {
     setCartelaPrint(null);
   }, []);
 
-  const atualCartelas = cartelas;
-
   return (
     <>
       <OfflineBanner />
       <Routes>
-        <Route path="/login" element={<Login onLogin={handleLogin} />} />
+        <Route path="login" element={<Login onLogin={handleLogin} />} />
         <Route
-          path="/minhas-cartelas"
+          path="minhas-cartelas"
           element={
             user ? (
               <MinhasCartelas
-                cartelas={atualCartelas}
+                cartelas={cartelas}
                 config={config}
                 resultados={resultados}
                 onRefreshCartelas={refreshCartelas}
                 onNovaCartela={() => {
                   setCartelaEditando(null);
-                  navigate("/preencher-cartela");
+                  navigate("preencher-cartela");
                 }}
                 onVerCartela={(c) => {
                   setCartelaEditando(c);
-                  navigate("/preencher-cartela");
+                  navigate("preencher-cartela");
                 }}
-                onVerRanking={() => navigate("/ranking")}
+                onVerRanking={() => navigate("ranking")}
                 onExcluirCartela={deletar}
                 onPrintCartela={handlePrintCartela}
                 onSair={handleSair}
                 onExcluirConta={handleExcluirConta}
                 onShowInstrucoes={() => setShowInstrucoes(true)}
                 onImportarCartela={handleImportarCartela}
-                onVerTabela={() => navigate("/tabela")}
+                onVerTabela={() => navigate("tabela")}
               />
             ) : (
               <Login onLogin={handleLogin} />
@@ -191,7 +176,7 @@ export default function App() {
           }
         />
         <Route
-          path="/preencher-cartela"
+          path="preencher-cartela"
           element={
             user ? (
               <PreencherCartela
@@ -199,7 +184,7 @@ export default function App() {
                 resultados={resultados}
                 config={config}
                 onSalvar={handleSalvarCartela}
-                onVoltar={() => navigate("/minhas-cartelas")}
+                onVoltar={() => navigate("minhas-cartelas")}
                 onPrintCartela={handlePrintCartela}
               />
             ) : (
@@ -208,7 +193,7 @@ export default function App() {
           }
         />
         <Route
-          path="/ranking"
+          path="ranking"
           element={
             <RankingPage
               cartelas={cartelas}
@@ -216,19 +201,18 @@ export default function App() {
               campeoReal={campeoReal}
               config={config}
               isAdmin={isAdmin}
-              isGroupAdmin={isGroupAdmin}
               ultimaAtualizacao={ultimaAtualizacao}
-              onVoltar={() => navigate("/minhas-cartelas")}
+              onVoltar={() => navigate("minhas-cartelas")}
               onValidarCartela={validar}
               onResultadosChange={handleResultadosChange}
               onShowInstrucoes={() => setShowInstrucoes(true)}
-              onVerTabela={() => navigate("/tabela")}
+              onVerTabela={() => navigate("tabela")}
               onVerCartela={handleVerCartela}
             />
           }
         />
         <Route
-          path="/admin"
+          path="admin"
           element={
             <RankingPage
               cartelas={cartelas}
@@ -236,19 +220,18 @@ export default function App() {
               campeoReal={campeoReal}
               config={config}
               isAdmin={isAdmin}
-              isGroupAdmin={isGroupAdmin}
               ultimaAtualizacao={ultimaAtualizacao}
-              onVoltar={() => navigate("/minhas-cartelas")}
+              onVoltar={() => navigate("minhas-cartelas")}
               onValidarCartela={validar}
               onResultadosChange={handleResultadosChange}
               onShowInstrucoes={() => setShowInstrucoes(true)}
-              onVerTabela={() => navigate("/tabela")}
+              onVerTabela={() => navigate("tabela")}
               onVerCartela={handleVerCartela}
             />
           }
         />
         <Route
-          path="/tabela"
+          path="tabela"
           element={
             <Tabela
               resultados={resultados}
@@ -257,17 +240,6 @@ export default function App() {
             />
           }
         />
-        <Route
-          path="/grupo/:slug/tabela"
-          element={
-            <Tabela
-              resultados={resultados}
-              campeoReal={campeoReal}
-              onVoltar={() => navigate(-1)}
-            />
-          }
-        />
-        <Route path="/convite/:token" element={<Convite />} />
         <Route path="*" element={<Login onLogin={handleLogin} />} />
       </Routes>
       {showInstrucoes && (

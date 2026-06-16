@@ -1,20 +1,28 @@
-import React from "react";
-import { useAuth } from "../contexts/AuthContext";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabaseFetch } from "../services/supabase";
+import { useGrupo } from "../contexts/GrupoContext";
 
 export function GroupSelector() {
-  const { meusGrupos, grupoAtivo, setGrupoAtivo } = useAuth();
+  const { grupo } = useGrupo();
+  const navigate = useNavigate();
+  const [grupos, setGrupos] = useState([]);
 
-  if (!meusGrupos || meusGrupos.length === 0) return null;
+  useEffect(() => {
+    supabaseFetch("/rest/v1/grupos?select=slug,nome")
+      .then(r => r.json())
+      .then(setGrupos)
+      .catch(() => setGrupos([]));
+  }, []);
+
+  if (!grupos || grupos.length === 0) return null;
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <span style={{ color: "#8B9CC8", fontSize: 11, whiteSpace: "nowrap" }}>Grupo:</span>
       <select
-        value={grupoAtivo?.id || ""}
-        onChange={(e) => {
-          const g = meusGrupos.find((g) => g.id === e.target.value);
-          if (g) setGrupoAtivo(g);
-        }}
+        value={grupo?.slug || ""}
+        onChange={(e) => navigate("/" + e.target.value + "/ranking")}
         style={{
           background: "#1a2234",
           border: "1px solid #1E2A45",
@@ -27,8 +35,8 @@ export function GroupSelector() {
           maxWidth: 160,
         }}
       >
-        {meusGrupos.map((g) => (
-          <option key={g.id} value={g.id}>
+        {grupos.map((g) => (
+          <option key={g.slug} value={g.slug}>
             {g.nome}
           </option>
         ))}

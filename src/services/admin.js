@@ -1,8 +1,8 @@
-import { supabaseFetch, supabaseHeaders, SUPABASE_URL } from "./supabase";
+import { supabaseFetch, supabaseHeaders } from "./supabase";
 
-export async function getAdminData() {
+export async function getAdminData(grupoId = "geral") {
   try {
-    const res = await supabaseFetch("/rest/v1/admin?select=resultados,campeo_real&id=eq.1");
+    const res = await supabaseFetch("/rest/v1/admin?select=resultados,campeo_real&grupo_id=eq." + encodeURIComponent(grupoId));
     const data = await res.json();
     return {
       resultados: data?.[0]?.resultados || {},
@@ -13,13 +13,13 @@ export async function getAdminData() {
   }
 }
 
-export async function salvarAdminData(resultados, campeoReal) {
+export async function salvarAdminData(resultados, campeoReal, grupoId = "geral") {
   const body = {
     resultados,
     campeo_real: campeoReal,
     updated_at: new Date().toISOString(),
   };
-  const res = await supabaseFetch("/rest/v1/admin?id=eq.1", {
+  const res = await supabaseFetch("/rest/v1/admin?grupo_id=eq." + encodeURIComponent(grupoId), {
     method: "PATCH",
     body: JSON.stringify(body),
   });
@@ -27,15 +27,19 @@ export async function salvarAdminData(resultados, campeoReal) {
     const res2 = await supabaseFetch("/rest/v1/admin", {
       method: "POST",
       headers: { ...supabaseHeaders, "Prefer": "resolution=merge-duplicates" },
-      body: JSON.stringify({ id: 1, ...body }),
+      body: JSON.stringify({ id: genId(), ...body, grupo_id: grupoId }),
     });
     if (!res2.ok && res2.status !== 201) throw new Error("Erro ao salvar dados de admin");
   }
 }
 
-export async function getConfig() {
+function genId() {
+  return Date.now();
+}
+
+export async function getConfig(grupoId = "geral") {
   try {
-    const res = await supabaseFetch("/rest/v1/config?select=valor_aposta,api_url,admin_password,bonus_geral&id=eq.1");
+    const res = await supabaseFetch("/rest/v1/config?select=valor_aposta,api_url,admin_password,bonus_geral&id=eq.1&grupo_id=eq." + encodeURIComponent(grupoId));
     const data = await res.json();
     return {
       valor_aposta: data?.[0]?.valor_aposta || 20,
@@ -48,7 +52,7 @@ export async function getConfig() {
   }
 }
 
-export async function salvarConfig({ valor_aposta, api_url, admin_password, bonus_geral }) {
+export async function salvarConfig({ valor_aposta, api_url, admin_password, bonus_geral }, grupoId = "geral") {
   const body = {
     valor_aposta: Number(valor_aposta),
     api_url,
@@ -59,20 +63,16 @@ export async function salvarConfig({ valor_aposta, api_url, admin_password, bonu
   if (bonus_geral !== undefined) {
     body.bonus_geral = Number(bonus_geral) || 0;
   }
-  const res = await supabaseFetch("/rest/v1/config?id=eq.1", {
+  const res = await supabaseFetch("/rest/v1/config?grupo_id=eq." + encodeURIComponent(grupoId), {
     method: "PATCH",
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const texto = await res.text().catch(() => "");
     const res2 = await supabaseFetch("/rest/v1/config", {
       method: "POST",
       headers: { ...supabaseHeaders, "Prefer": "resolution=merge-duplicates" },
-      body: JSON.stringify({ id: 1, ...body }),
+      body: JSON.stringify({ id: genId(), grupo_id: grupoId, ...body }),
     });
-    if (!res2.ok && res2.status !== 201) {
-      const texto2 = await res2.text().catch(() => "");
-      throw new Error("Erro ao salvar configuração\nPATCH: " + res.status + " " + texto.slice(0, 200) + "\nPOST: " + res2.status + " " + texto2.slice(0, 200));
-    }
+    if (!res2.ok && res2.status !== 201) throw new Error("Erro ao salvar configuração");
   }
 }

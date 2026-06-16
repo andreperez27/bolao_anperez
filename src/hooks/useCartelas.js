@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { listCartelas, salvarCartela, deletarCartela, validarCartela } from "../services/cartelas";
 import { useAuth } from "../contexts/AuthContext";
 
-export function useCartelas(grupoId = '00000000-0000-0000-0000-000000000000') {
+export function useCartelas(grupoId = "geral") {
   const { user, jogador } = useAuth();
   const [cartelas, setCartelas] = useState([]);
   const [loading, setLoading] = useState(true);
