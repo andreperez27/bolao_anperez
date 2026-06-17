@@ -43,7 +43,7 @@ UPDATE admin     SET grupo_id = 'geral' WHERE grupo_id IS NULL;
 -- 7. Garantir linha de config e admin para o grupo geral
 INSERT INTO config (id, grupo_id, valor_aposta, admin_password, api_url, bonus_geral)
 VALUES (1, 'geral', 20, '', 'https://worldcup26.ir/get/games', 0)
-ON CONFLICT (id) DO UPDATE SET grupo_id = 'geral';
+ON CONFLICT (id) DO UPDATE SET grupo_id = 'geral', api_url = EXCLUDED.api_url;
 
 INSERT INTO admin (id, grupo_id, resultados, campeo_real)
 VALUES (1, 'geral', '{}', '')

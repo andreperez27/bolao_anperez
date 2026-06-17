@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { getAdminData, getConfig, salvarAdminData } from "../services/admin";
 import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
 
+const DEFAULT_API_URL = "https://worldcup26.ir/get/games";
+
 export function useRanking(grupoId = "geral") {
   const [resultados, setResultados] = useState({});
   const [campeoReal, setCampeoReal] = useState("");
@@ -23,13 +25,15 @@ export function useRanking(grupoId = "geral") {
       const novos = parseResultadosDeAPI(matches);
       const count = Object.keys(novos).length;
       if (count > 0) {
-        const mergeados = { ...resultados, ...novos };
-        setResultados(mergeados);
-        salvarAdminData(mergeados, campeoReal, grupoId).catch(() => {});
+        setResultados((prev) => {
+          const mergeados = { ...prev, ...novos };
+          salvarAdminData(mergeados, campeoReal, grupoId).catch(() => {});
+          return mergeados;
+        });
         setUltimaAtualizacao(new Date());
       }
     } catch {}
-  }, [resultados, campeoReal, grupoId]);
+  }, [campeoReal, grupoId]);
 
   useEffect(() => {
     let ativo = true;
@@ -47,9 +51,9 @@ export function useRanking(grupoId = "geral") {
   }, [grupoId]);
 
   useEffect(() => {
-    if (!config.api_url) return;
-    autoFetchResultados(config.api_url);
-    const id = setInterval(() => autoFetchResultados(config.api_url), 120000);
+    const url = config.api_url || DEFAULT_API_URL;
+    autoFetchResultados(url);
+    const id = setInterval(() => autoFetchResultados(url), 120000);
     return () => clearInterval(id);
   }, [config.api_url, autoFetchResultados]);
 
