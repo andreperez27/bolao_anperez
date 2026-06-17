@@ -61,15 +61,23 @@ export function parseResultadosDeAPI(matches) {
   return novos;
 }
 
+const CORS_PROXIES = [
+  (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
 export async function fetchResultadosDeURL(url) {
-  console.log("Buscando:", url);
-  const res = await fetch(url, { mode: "cors" });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`URL:\n${url}\nHTTP ${res.status} ${res.statusText}\n${text.slice(0, 200)}`);
+  let lastErr;
+  for (const proxyFn of CORS_PROXIES) {
+    const proxyUrl = proxyFn(url);
+    console.log("Tentando:", proxyUrl.slice(0, 80) + "...");
+    try {
+      const res = await fetch(proxyUrl, { mode: "cors" });
+      if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+      const data = await res.json();
+      const arr = Array.isArray(data) ? data : data.matches || data.games || data.data || data.results || [];
+      if (arr.length > 0) { console.log(`API: ${arr.length} partidas`); return arr; }
+    } catch (e) { lastErr = e; }
   }
-  const data = await res.json();
-  const arr = Array.isArray(data) ? data : data.matches || data.games || data.data || data.results || [];
-  console.log(`API: ${arr.length} partidas recebidas`);
-  return arr;
+  throw lastErr || new Error("Nenhum proxy CORS disponível");
 }
