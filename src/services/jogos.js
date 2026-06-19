@@ -214,6 +214,13 @@ export const ALIASES_TIMES = {
   "congo dr": "RD Congo",
   "republica democratica do congo": "RD Congo",
   "democratic republic of the congo": "RD Congo",
+  "iraq": "Iraque",
+  "norway": "Noruega",
+  "algeria": "Argélia",
+  "jordan": "Jordânia",
+  "panama": "Panamá",
+  "uzbekistan": "Uzbequistão",
+  "austria": "Áustria",
 };
 
 export function normalizarNomePais(nome) {

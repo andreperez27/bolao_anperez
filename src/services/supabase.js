@@ -1,5 +1,5 @@
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://sjleucelnptbgyjofhnz.supabase.co";
-export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_fFDUULEIatz3fzxENC6BRQ_T8rZZEmr";
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://fnqnlajohfvcvatvznkd.supabase.co";
+export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_3C2tm8hRqrIA6zdUrBvUUg_470i3Ax1";
 
 export const supabaseHeaders = {
   "apikey": SUPABASE_ANON_KEY,

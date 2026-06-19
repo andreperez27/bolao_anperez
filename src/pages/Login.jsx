@@ -1,12 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "../components/Card";
 import { Btn } from "../components/Btn";
+import { signIn, signUp, signInAdmin, entrarComConvite } from "../services/auth";
+import { validarConvite } from "../services/grupos";
 import { useAuth } from "../contexts/AuthContext";
-import { useGrupo } from "../contexts/GrupoContext";
 
 export default function Login({ onLogin }) {
-  const { user, loading: authLoading, senhaPadrao, signIn, signUp, signInAdmin, signOut } = useAuth();
-  const { grupo } = useGrupo();
+  const { user, loading: authLoading } = useAuth();
   const [nome, setNome] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmSenha, setConfirmSenha] = useState("");
@@ -15,14 +15,23 @@ export default function Login({ onLogin }) {
   const [modo, setModo] = useState(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminSenha, setAdminSenha] = useState("");
+  const [codigoConvite, setCodigoConvite] = useState("");
+  const [conviteValido, setConviteValido] = useState(null);
+  const [showConvite, setShowConvite] = useState(false);
+
+  useEffect(() => {
+    if (user && !authLoading) {
+      onLogin(user);
+    }
+  }, [user, authLoading, onLogin]);
 
   const handleEntrar = async () => {
     if (!nome.trim() || !senha) return;
     setSubmitting(true);
     setErro("");
     try {
-      await signIn(nome.trim(), senha);
-      onLogin({ isAdmin: false, senhaPadrao: senha === '123456' });
+      const session = await signIn({ nome: nome.trim(), senha });
+      onLogin(session);
     } catch (e) {
       setErro(e.message);
     }
@@ -39,11 +48,28 @@ export default function Login({ onLogin }) {
       setErro("Senhas não conferem!");
       return;
     }
+    if (modo === "convite" && conviteValido) {
+      setSubmitting(true);
+      setErro("");
+      try {
+        const session = await entrarComConvite({
+          codigo: codigoConvite,
+          nome: nome.trim(),
+          senha,
+        });
+        onLogin(session);
+      } catch (e) {
+        setErro(e.message);
+      }
+      setSubmitting(false);
+      return;
+    }
     setSubmitting(true);
     setErro("");
     try {
-      await signUp(nome.trim(), senha);
-      onLogin({ isAdmin: false, senhaPadrao: senha === '123456' });
+      const session = await signUp({ nome: nome.trim(), senha });
+      setErro("Conta criada! Bem-vindo ao bolão.");
+      onLogin(session);
     } catch (e) {
       setErro(e.message);
     }
@@ -55,12 +81,29 @@ export default function Login({ onLogin }) {
     setSubmitting(true);
     setErro("");
     try {
-      await signInAdmin(adminSenha);
-      onLogin({ isAdmin: true });
+      const session = await signInAdmin({ senha: adminSenha });
+      onLogin(session);
     } catch (e) {
       setErro(e.message);
     }
     setSubmitting(false);
+  };
+
+  const handleValidarConvite = async () => {
+    if (!codigoConvite.trim()) return;
+    setErro("");
+    setConviteValido(null);
+    try {
+      const data = await validarConvite(codigoConvite.trim().toUpperCase());
+      if (data.valido) {
+        setConviteValido(data);
+        setErro(`Convite válido! Grupo: ${data.grupo_nome}`);
+      } else {
+        setErro("Convite inválido ou expirado");
+      }
+    } catch (e) {
+      setErro(e.message);
+    }
   };
 
   if (authLoading) {
@@ -106,9 +149,6 @@ export default function Login({ onLogin }) {
       >
         BOLÃO DA COPA 2026
       </h1>
-      <div style={{ color: "#10b981", fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-        {grupo?.nome || "Bolão Geral"}
-      </div>
       <p style={{ color: "#8B9CC8", marginBottom: 32, fontSize: 15 }}>
         Bolão 2026 {"—"} Faça seus palpites!
       </p>
@@ -117,8 +157,35 @@ export default function Login({ onLogin }) {
         {!user ? (
           <>
             <div style={{ color: "#F0F4FF", fontSize: 15, fontWeight: 600, marginBottom: 8 }}>
-              {modo === "cadastro" ? "Novo Cadastro" : "Entrar"}
+              {modo === "cadastro" ? "Novo Cadastro" : modo === "convite" ? "Entrar com Convite" : "Entrar"}
             </div>
+
+            {modo === "convite" && (
+              <>
+                <input
+                  value={codigoConvite}
+                  onChange={(e) => { setCodigoConvite(e.target.value.toUpperCase()); setErro(""); setConviteValido(null); }}
+                  placeholder="Código do convite"
+                  style={{
+                    width: "100%",
+                    background: "#1a2234",
+                    border: "2px solid #1E2A45",
+                    borderRadius: 8,
+                    color: "#F0F4FF",
+                    padding: "10px 14px",
+                    fontSize: 16,
+                    boxSizing: "border-box",
+                    marginBottom: 8,
+                    textTransform: "uppercase",
+                    letterSpacing: 3,
+                    textAlign: "center",
+                  }}
+                />
+                <Btn onClick={handleValidarConvite} disabled={!codigoConvite || submitting} style={{ width: "100%", marginBottom: 12 }}>
+                  Validar Convite
+                </Btn>
+              </>
+            )}
 
             <input
               value={nome}
@@ -161,7 +228,7 @@ export default function Login({ onLogin }) {
               }}
             />
 
-            {modo === "cadastro" && (
+            {(modo === "cadastro" || (modo === "convite" && conviteValido)) && (
               <input
                 type="password"
                 inputMode="numeric"
@@ -190,7 +257,7 @@ export default function Login({ onLogin }) {
             {erro && (
               <div
                 style={{
-                  color: erro.includes("Bem-vindo") ? "#22c55e" : "#C8102E",
+                  color: erro.includes("válido") || erro.includes("Bem-vindo") ? "#22c55e" : "#C8102E",
                   fontSize: 13,
                   marginBottom: 10,
                   textAlign: "center",
@@ -200,69 +267,94 @@ export default function Login({ onLogin }) {
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 8 }}>
-              <Btn
-                onClick={handleEntrar}
-                style={{ flex: 1 }}
-                disabled={!nome || !senha || submitting}
-              >
-                {submitting ? "Entrando..." : "Entrar"}
-              </Btn>
-              <Btn
-                onClick={() => {
-                  if (modo !== "cadastro") {
-                    setModo("cadastro");
-                    setErro("");
-                  } else {
-                    handleCadastrar();
+            {modo !== "convite" && (
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn
+                  onClick={handleEntrar}
+                  style={{ flex: 1 }}
+                  disabled={!nome || !senha || submitting}
+                >
+                  {submitting ? "Entrando..." : "Entrar"}
+                </Btn>
+                <Btn
+                  onClick={() => {
+                    if (modo !== "cadastro") {
+                      setModo("cadastro");
+                      setErro("");
+                    } else {
+                      handleCadastrar();
+                    }
+                  }}
+                  cor="#16a34a"
+                  style={{ flex: 1 }}
+                  disabled={
+                    !nome || !senha || (modo === "cadastro" && (!confirmSenha || confirmSenha !== senha)) || submitting
                   }
-                }}
+                >
+                  {submitting ? "Aguarde..." : modo === "cadastro" ? "Confirmar Cadastro" : "Cadastrar"}
+                </Btn>
+              </div>
+            )}
+
+            {modo === "convite" && (
+              <Btn
+                onClick={handleCadastrar}
                 cor="#16a34a"
-                style={{ flex: 1 }}
-                disabled={
-                  !nome || !senha || (modo === "cadastro" && (!confirmSenha || confirmSenha !== senha)) || submitting
-                }
+                style={{ width: "100%" }}
+                disabled={!nome || !senha || !conviteValido || !confirmSenha || confirmSenha !== senha || submitting}
               >
-                {submitting ? "Aguarde..." : modo === "cadastro" ? "Confirmar Cadastro" : "Cadastrar"}
+                {submitting ? "Entrando..." : "Entrar no Grupo"}
               </Btn>
-            </div>
+            )}
           </>
         ) : (
-          <>
-            <div style={{ color: "#F0F4FF", textAlign: "center", marginBottom: 12 }}>
-              Você já está logado como <strong>{user?.nome}</strong>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <Btn onClick={() => onLogin({ isAdmin: false, senhaPadrao })} cor="#16a34a" style={{ flex: 1 }}>
-                Continuar
-              </Btn>
-              <Btn onClick={signOut} cor="#C8102E" style={{ flex: 1 }}>
-                Sair
-              </Btn>
-            </div>
-          </>
+          <div style={{ color: "#F0F4FF", textAlign: "center" }}>
+            Entrando como <strong>{user?.nome}</strong>...
+          </div>
         )}
       </Card>
 
       {!user && (
-        <div style={{ marginTop: 20, textAlign: "center" }}>
-          {!showAdminLogin ? (
-            <button
-              onClick={() => { setShowAdminLogin(true); setErro(""); }}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "#8B9CC8",
-                fontSize: 12,
-                cursor: "pointer",
-                textDecoration: "underline",
-                padding: 4,
-              }}
-            >
-              {"\uD83D\uDD10"} Entrar como Administrador
-            </button>
-          ) : (
-            <div style={{ display: "flex", gap: 8, maxWidth: 380, margin: "0 auto", flexDirection: "column" }}>
+        <div style={{ marginTop: 20, textAlign: "center", display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={() => {
+              setShowConvite(!showConvite);
+              if (!showConvite) { setModo("convite"); setShowAdminLogin(false); }
+              else { setModo(null); setShowConvite(false); }
+              setErro("");
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#8B9CC8",
+              fontSize: 12,
+              cursor: "pointer",
+              textDecoration: "underline",
+              padding: 4,
+            }}
+          >
+            {"\uD83D\uDD11"} Tenho um convite
+          </button>
+          <button
+            onClick={() => {
+              setShowAdminLogin(!showAdminLogin);
+              if (!showAdminLogin) { setShowConvite(false); setModo(null); }
+              setErro("");
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#8B9CC8",
+              fontSize: 12,
+              cursor: "pointer",
+              textDecoration: "underline",
+              padding: 4,
+            }}
+          >
+            {"\uD83D\uDD10"} Entrar como Administrador
+          </button>
+          {showAdminLogin && (
+            <div style={{ display: "flex", gap: 8, maxWidth: 380, flexDirection: "column" }}>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   type="password"

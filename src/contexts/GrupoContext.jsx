@@ -1,41 +1,73 @@
-import { createContext, useContext, useMemo, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import React, { createContext, useState, useEffect, useContext, useCallback } from "react";
+import { useLocation } from "react-router-dom";
+import { buscarGrupoPorSlug } from "../services/grupos";
 
-const GrupoContext = createContext()
-
-const GRUPOS_POR_SLUG = {
-  geral: { id: 'geral', nome: 'Bolão Geral', slug: 'geral' },
-}
+const GrupoContext = createContext(null);
 
 export function GrupoProvider({ children }) {
-  const { slug } = useParams()
-  const navigate = useNavigate()
+  const location = useLocation();
+  const [grupo, setGrupo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const grupoId = useMemo(() => {
-    if (!slug) return 'geral'
-    return GRUPOS_POR_SLUG[slug]?.id || null
-  }, [slug])
+  const slug = extrairSlug(location.pathname);
 
-  const grupo = useMemo(() => {
-    if (!slug) return GRUPOS_POR_SLUG['geral']
-    return GRUPOS_POR_SLUG[slug] || null
-  }, [slug])
-
-  const setGrupo = useCallback((g) => {
-    if (g?.slug) {
-      navigate(`/${g.slug}`, { replace: true })
+  useEffect(() => {
+    if (!slug) {
+      setGrupo(null);
+      setLoading(false);
+      return;
     }
-  }, [navigate])
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    buscarGrupoPorSlug(slug)
+      .then((data) => {
+        if (!cancelled) {
+          if (data && data.id) {
+            setGrupo(data);
+          } else {
+            setError("Grupo não encontrado");
+            setGrupo(null);
+          }
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.message);
+          setGrupo(null);
+          setLoading(false);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  const refresh = useCallback(async () => {
+    if (!slug) return;
+    try {
+      const data = await buscarGrupoPorSlug(slug);
+      if (data && data.id) setGrupo(data);
+    } catch {}
+  }, [slug]);
 
   return (
-    <GrupoContext.Provider value={{ grupoId, grupo, setGrupo, GRUPOS_POR_SLUG }}>
+    <GrupoContext.Provider value={{ grupo, loading, error, slug, refresh }}>
       {children}
     </GrupoContext.Provider>
-  )
+  );
 }
 
 export function useGrupo() {
-  const ctx = useContext(GrupoContext)
-  if (!ctx) throw new Error('useGrupo must be used within GrupoProvider')
-  return ctx
+  const ctx = useContext(GrupoContext);
+  if (!ctx) throw new Error("useGrupo must be used within GrupoProvider");
+  return ctx;
+}
+
+function extrairSlug(pathname) {
+  const match = pathname.match(/\/grupo\/([^/]+)/);
+  return match ? match[1] : null;
 }

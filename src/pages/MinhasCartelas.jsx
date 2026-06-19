@@ -8,7 +8,6 @@ import { JOGOS_TODOS } from "../services/jogos";
 import { useAuth } from "../contexts/AuthContext";
 import { NOMES_IA } from "../services/ia";
 import { JogosDoDia } from "../components/JogosDoDia";
-import { GroupSelector } from "../components/GroupSelector";
 
 function ConfirmModal({ title, message, onConfirm, onCancel }) {
   return (
@@ -99,7 +98,6 @@ export default function MinhasCartelas({
             <div style={{ color: "#F0F4FF", fontSize: 20, fontWeight: 900 }}>
               Olá, {jogador?.nome}! {"\uD83D\uDC4B"}
             </div>
-            <div style={{ marginTop: 6 }}><GroupSelector /></div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button

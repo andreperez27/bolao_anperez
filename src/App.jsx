@@ -8,12 +8,14 @@ import { salvarAdminData } from "./services/admin";
 import { getFaseAtual } from "./utils/pontuacao";
 import { deletarCartela } from "./services/cartelas";
 import { deletarJogador } from "./services/jogadores";
+import { RequireAuth, RequireSuperAdmin } from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import MinhasCartelas from "./pages/MinhasCartelas";
 import PreencherCartela from "./pages/PreencherCartela";
 import RankingPage from "./pages/Ranking";
 import Tabela from "./pages/Tabela";
-import TrocarSenha from "./pages/TrocarSenha";
+import SuperAdminPainel from "./components/SuperAdminPainel";
+import GrupoAdminPainel from "./components/GrupoAdminPainel";
 import { ModalInstrucoes } from "./components/ModalInstrucoes";
 import { PrintArea } from "./components/PrintArea";
 import { OfflineBanner } from "./components/OfflineBanner";
@@ -21,10 +23,10 @@ import { OfflineBanner } from "./components/OfflineBanner";
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, jogador, isAdmin, senhaPadrao, signOut, refreshJogador, refreshUser, handleTrocarSenha } = useAuth();
-  const { grupoId, grupo } = useGrupo();
-  const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas(grupoId);
-  const { resultados, campeoReal, config, updateResultados, loadData, ultimaAtualizacao } = useRanking(grupoId);
+  const { user, jogador, isAdmin, isSuperAdmin, role, grupoSlug, signOut, setSession } = useAuth();
+  const { grupo } = useGrupo();
+  const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas();
+  const { resultados, campeoReal, config, updateResultados, loadData, ultimaAtualizacao } = useRanking();
 
   const [cartelaEditando, setCartelaEditando] = useState(null);
   const [cartelaPrint, setCartelaPrint] = useState(null);
@@ -38,38 +40,52 @@ export default function App() {
     }
   }, [user]);
 
-  const handleLogin = useCallback(
-    async ({ isAdmin: adminFlag, senhaPadrao: sp }) => {
-      refreshUser();
-      if (sp) {
-        navigate("trocar-senha", { replace: true });
-      } else if (adminFlag) {
-        navigate("admin", { replace: true });
+  useEffect(() => {
+    if (location.pathname === "/" || location.pathname === "/bolao_anperez/") {
+      if (!user) {
+        navigate("/login", { replace: true });
+      } else if (isSuperAdmin) {
+        navigate("/admin/grupos", { replace: true });
+      } else if (grupoSlug) {
+        navigate(`/grupo/${grupoSlug}/cartelas`, { replace: true });
       } else {
-        navigate("minhas-cartelas", { replace: true });
+        navigate("/minhas-cartelas", { replace: true });
+      }
+    }
+  }, [user, location.pathname, navigate, isSuperAdmin, grupoSlug]);
+
+  const handleLogin = useCallback(
+    (session) => {
+      setSession(session);
+      if (session?.role === "super_admin") {
+        navigate("/admin/grupos", { replace: true });
+      } else if (session?.grupo_slug) {
+        navigate(`/grupo/${session.grupo_slug}/cartelas`, { replace: true });
+      } else {
+        navigate("/minhas-cartelas", { replace: true });
       }
     },
-    [navigate, refreshUser]
+    [navigate, setSession]
   );
 
   const handleSair = useCallback(async () => {
     await signOut();
-    navigate("login", { replace: true });
+    navigate("/login", { replace: true });
   }, [signOut, navigate]);
 
   const handleExcluirConta = useCallback(async () => {
-    const confirm = window.confirm("Tem certeza que deseja excluir sua conta?");
+    const confirm = window.confirm("Tem certeza que deseja excluir sua conta? Todos os seus dados serão perdidos.");
     if (!confirm) return;
     const minhasCartelas = cartelas.filter((c) => c.participante === jogador?.nome);
     for (const c of minhasCartelas) {
       try { await deletarCartela(c.id); } catch {}
     }
     try {
-      await deletarJogador(user?.nome, grupoId);
+      await deletarJogador(user?.nome);
     } catch {}
     await signOut();
-    navigate("login", { replace: true });
-  }, [user, jogador, cartelas, grupoId, signOut, navigate]);
+    navigate("/login", { replace: true });
+  }, [user, jogador, cartelas, signOut, navigate]);
 
   const handleSalvarCartela = useCallback(
     async (cartela) => {
@@ -78,9 +94,10 @@ export default function App() {
         nova.campeao_fase = getFaseAtual(resultados);
       }
       await salvarCartelaHook(nova);
-      navigate("minhas-cartelas", { replace: true });
+      const back = grupo ? `/grupo/${grupo.slug}/cartelas` : "/minhas-cartelas";
+      navigate(back, { replace: true });
     },
-    [resultados, salvarCartelaHook, navigate]
+    [resultados, salvarCartelaHook, navigate, grupo]
   );
 
   const handleValidarCartela = useCallback(
@@ -93,9 +110,9 @@ export default function App() {
   const handleResultadosChange = useCallback(
     (novosResultados, novoCampeo) => {
       updateResultados(novosResultados, novoCampeo);
-      salvarAdminData(novosResultados, novoCampeo, grupoId).catch(() => {});
+      salvarAdminData(novosResultados, novoCampeo).catch(() => {});
     },
-    [updateResultados, grupoId]
+    [updateResultados]
   );
 
   const handlePrintCartela = useCallback((cartela) => {
@@ -110,10 +127,12 @@ export default function App() {
         const nomePart = jogador?.nome || user?.nome || "";
         const dados = parseCartelaHTML(text, nomePart);
         const msgErros = dados.erros?.length ? dados.erros.join("\n") : "";
+
         if (Object.keys(dados.palpites).length === 0) {
-          alert("Nenhum palpite válido encontrado." + (msgErros ? "\n\n" + msgErros : ""));
+          alert("Nenhum palpite válido encontrado no arquivo." + (msgErros ? "\n\n" + msgErros : ""));
           return;
         }
+
         await salvarCartelaHook({
           id: "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
           nome: dados.nome || "Importada",
@@ -123,8 +142,9 @@ export default function App() {
           participante: nomePart,
           status: "aguardando",
         });
+
         let msg = `Nova cartela importada com ${Object.keys(dados.palpites).length} palpite(s)!`;
-        if (dados.dataEmitido) msg += ` Data: ${dados.dataEmitido.toLocaleDateString("pt-BR")}.`;
+        if (dados.dataEmitido) msg += ` Data de exportação: ${dados.dataEmitido.toLocaleDateString("pt-BR")}.`;
         if (msgErros) msg += `\n\nAvisos:\n${msgErros}`;
         alert(msg);
       } catch (e) {
@@ -134,107 +154,104 @@ export default function App() {
     [salvarCartelaHook, jogador, user]
   );
 
-  const handleVerCartela = useCallback((cartela) => {
-    setCartelaEditando(cartela);
-  }, []);
-
   const handlePrintDone = useCallback(() => {
     setCartelaPrint(null);
   }, []);
+
+  const atualCartelas = cartelas;
+  const grupoSlugAtual = grupo?.slug || grupoSlug;
+  const groupConfig = grupo?.valor_aposta ? { ...config, valor_aposta: grupo.valor_aposta } : config;
 
   return (
     <>
       <OfflineBanner />
       <Routes>
-        <Route path="login" element={<Login onLogin={handleLogin} />} />
+        <Route path="/login" element={<Login onLogin={handleLogin} />} />
         <Route
-          path="minhas-cartelas"
+          path="/admin/grupos"
           element={
-            user ? (
+            <RequireSuperAdmin>
+              <SuperAdminPainel />
+            </RequireSuperAdmin>
+          }
+        />
+        <Route
+          path="/grupo/:slug/admin"
+          element={
+            <RequireAuth>
+              <GrupoAdminPainel />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/grupo/:slug/cartelas"
+          element={
+            <RequireAuth>
               <MinhasCartelas
-                cartelas={cartelas}
-                config={config}
+                cartelas={atualCartelas}
+                config={groupConfig}
                 resultados={resultados}
                 onRefreshCartelas={refreshCartelas}
                 onNovaCartela={() => {
                   setCartelaEditando(null);
-                  navigate("preencher-cartela");
+                  const slug = grupo?.slug || grupoSlug;
+                  navigate(slug ? `/grupo/${slug}/preencher-cartela` : "/preencher-cartela");
                 }}
                 onVerCartela={(c) => {
                   setCartelaEditando(c);
-                  navigate("preencher-cartela");
+                  const slug = grupo?.slug || grupoSlug;
+                  navigate(slug ? `/grupo/${slug}/preencher-cartela` : "/preencher-cartela");
                 }}
-                onVerRanking={() => navigate("ranking")}
+                onVerRanking={() => navigate(grupoSlugAtual ? `/grupo/${grupoSlugAtual}/ranking` : "/ranking")}
                 onExcluirCartela={deletar}
                 onPrintCartela={handlePrintCartela}
                 onSair={handleSair}
                 onExcluirConta={handleExcluirConta}
                 onShowInstrucoes={() => setShowInstrucoes(true)}
                 onImportarCartela={handleImportarCartela}
-                onVerTabela={() => navigate("tabela")}
+                onVerTabela={() => navigate(grupoSlugAtual ? `/grupo/${grupoSlugAtual}/tabela` : "/tabela")}
               />
-            ) : (
-              <Login onLogin={handleLogin} />
-            )
+            </RequireAuth>
           }
         />
         <Route
-          path="preencher-cartela"
+          path="/grupo/:slug/preencher-cartela"
           element={
-            user ? (
+            <RequireAuth>
               <PreencherCartela
                 cartela={cartelaEditando}
                 resultados={resultados}
-                config={config}
+                config={groupConfig}
                 onSalvar={handleSalvarCartela}
-                onVoltar={() => navigate("minhas-cartelas")}
+                onVoltar={() => navigate(grupoSlugAtual ? `/grupo/${grupoSlugAtual}/cartelas` : "/minhas-cartelas")}
                 onPrintCartela={handlePrintCartela}
               />
-            ) : (
-              <Login onLogin={handleLogin} />
-            )
+            </RequireAuth>
           }
         />
         <Route
-          path="ranking"
+          path="/grupo/:slug/ranking"
           element={
-            <RankingPage
-              cartelas={cartelas}
-              resultados={resultados}
-              campeoReal={campeoReal}
-              config={config}
-              isAdmin={isAdmin}
-              ultimaAtualizacao={ultimaAtualizacao}
-              onVoltar={() => navigate("minhas-cartelas")}
-              onValidarCartela={validar}
-              onResultadosChange={handleResultadosChange}
-              onShowInstrucoes={() => setShowInstrucoes(true)}
-              onVerTabela={() => navigate("tabela")}
-              onVerCartela={handleVerCartela}
-            />
+            <RequireAuth>
+              <RankingPage
+                cartelas={atualCartelas}
+                resultados={resultados}
+                campeoReal={campeoReal}
+                isAdmin={isAdmin}
+                config={groupConfig}
+                ultimaAtualizacao={ultimaAtualizacao}
+                onVoltar={() => navigate(grupoSlugAtual ? `/grupo/${grupoSlugAtual}/cartelas` : "/minhas-cartelas")}
+                onValidarCartela={handleValidarCartela}
+                onResultadosChange={handleResultadosChange}
+                onShowInstrucoes={() => setShowInstrucoes(true)}
+                onVerTabela={() => navigate(grupoSlugAtual ? `/grupo/${grupoSlugAtual}/tabela` : "/tabela")}
+                onVerCartela={(c) => { setCartelaEditando(c); navigate(grupoSlugAtual ? `/grupo/${grupoSlugAtual}/preencher-cartela` : "/preencher-cartela"); }}
+              />
+            </RequireAuth>
           }
         />
         <Route
-          path="admin"
-          element={
-            <RankingPage
-              cartelas={cartelas}
-              resultados={resultados}
-              campeoReal={campeoReal}
-              config={config}
-              isAdmin={isAdmin}
-              ultimaAtualizacao={ultimaAtualizacao}
-              onVoltar={() => navigate("minhas-cartelas")}
-              onValidarCartela={validar}
-              onResultadosChange={handleResultadosChange}
-              onShowInstrucoes={() => setShowInstrucoes(true)}
-              onVerTabela={() => navigate("tabela")}
-              onVerCartela={handleVerCartela}
-            />
-          }
-        />
-        <Route
-          path="tabela"
+          path="/grupo/:slug/tabela"
           element={
             <Tabela
               resultados={resultados}
@@ -243,7 +260,77 @@ export default function App() {
             />
           }
         />
-        <Route path="trocar-senha" element={user ? <TrocarSenha /> : <Login onLogin={handleLogin} />} />
+        <Route
+          path="/minhas-cartelas"
+          element={
+            user ? (
+              <MinhasCartelas
+                cartelas={atualCartelas}
+                config={config}
+                resultados={resultados}
+                onRefreshCartelas={refreshCartelas}
+                onNovaCartela={() => { setCartelaEditando(null); navigate("/preencher-cartela"); }}
+                onVerCartela={(c) => { setCartelaEditando(c); navigate("/preencher-cartela"); }}
+                onVerRanking={() => navigate("/ranking")}
+                onExcluirCartela={deletar}
+                onPrintCartela={handlePrintCartela}
+                onSair={handleSair}
+                onExcluirConta={handleExcluirConta}
+                onShowInstrucoes={() => setShowInstrucoes(true)}
+                onImportarCartela={handleImportarCartela}
+                onVerTabela={() => navigate("/tabela")}
+              />
+            ) : (
+              <Login onLogin={handleLogin} />
+            )
+          }
+        />
+        <Route
+          path="/preencher-cartela"
+          element={
+            user ? (
+              <PreencherCartela
+                cartela={cartelaEditando}
+                resultados={resultados}
+                config={config}
+                onSalvar={handleSalvarCartela}
+                onVoltar={() => navigate("/minhas-cartelas")}
+                onPrintCartela={handlePrintCartela}
+              />
+            ) : (
+              <Login onLogin={handleLogin} />
+            )
+          }
+        />
+        <Route
+          path="/ranking"
+          element={
+            <RankingPage
+              cartelas={atualCartelas}
+              resultados={resultados}
+              campeoReal={campeoReal}
+              isAdmin={isAdmin}
+              config={config}
+              ultimaAtualizacao={ultimaAtualizacao}
+              onVoltar={() => navigate(user ? "/minhas-cartelas" : "/login")}
+              onValidarCartela={handleValidarCartela}
+              onResultadosChange={handleResultadosChange}
+              onShowInstrucoes={() => setShowInstrucoes(true)}
+              onVerTabela={() => navigate("/tabela")}
+              onVerCartela={(c) => { setCartelaEditando(c); navigate("/preencher-cartela"); }}
+            />
+          }
+        />
+        <Route
+          path="/tabela"
+          element={
+            <Tabela
+              resultados={resultados}
+              campeoReal={campeoReal}
+              onVoltar={() => navigate(-1)}
+            />
+          }
+        />
         <Route path="*" element={<Login onLogin={handleLogin} />} />
       </Routes>
       {showInstrucoes && (

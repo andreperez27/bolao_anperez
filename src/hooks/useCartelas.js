@@ -2,19 +2,20 @@ import { useState, useEffect, useCallback } from "react";
 import { listCartelas, salvarCartela, deletarCartela, validarCartela } from "../services/cartelas";
 import { useAuth } from "../contexts/AuthContext";
 
-export function useCartelas(grupoId = "geral") {
-  const { user, jogador } = useAuth();
+export function useCartelas(grupoId) {
+  const { user, jogador, grupoId: userGrupoId } = useAuth();
+  const resolvedGrupoId = grupoId || userGrupoId || '00000000-0000-0000-0000-000000000000';
   const [cartelas, setCartelas] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      const data = await listCartelas(grupoId);
+      const data = await listCartelas(resolvedGrupoId);
       setCartelas(data || []);
     } catch {
       setCartelas([]);
     }
-  }, [grupoId]);
+  }, [resolvedGrupoId]);
 
   useEffect(() => {
     if (!user) {
@@ -26,7 +27,7 @@ export function useCartelas(grupoId = "geral") {
     async function carregar() {
       setLoading(true);
       try {
-        const data = await listCartelas(grupoId);
+        const data = await listCartelas(resolvedGrupoId);
         if (ativo) setCartelas(data || []);
       } catch {
         if (ativo) setCartelas([]);
@@ -39,10 +40,10 @@ export function useCartelas(grupoId = "geral") {
       ativo = false;
       clearInterval(id);
     };
-  }, [user, grupoId]);
+  }, [user, resolvedGrupoId]);
 
   const salvar = async (cartela) => {
-    const nova = { ...cartela, grupo_id: grupoId };
+    const nova = { ...cartela, grupo_id: resolvedGrupoId };
     if (!nova.id) nova.id = "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
     nova.participante = jogador?.nome || user?.nome || nova.participante;
     if (!nova.status) nova.status = "aguardando";
