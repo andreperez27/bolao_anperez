@@ -20,7 +20,7 @@ BEGIN
   v_token := encode(extensions.gen_random_bytes(24), 'hex');
   INSERT INTO group_invites (grupo_id, token, token_hash, criado_por, invite_type, expira_em, max_usos)
   VALUES (p_grupo_id, v_token, extensions.crypt(v_token, extensions.gen_salt('bf')),
-    p_profile_id, p_invite_type, NOW() + (p_validade_dias || ' days')::INTERVAL, p_max_usos)
+    v_profile_id, p_invite_type, NOW() + (p_validade_dias || ' days')::INTERVAL, p_max_usos)
   RETURNING id INTO v_invite_id;
   RETURN json_build_object('id', v_invite_id, 'token', v_token, 'expira_em', NOW() + (p_validade_dias || ' days')::INTERVAL, 'invite_type', p_invite_type);
 END;
