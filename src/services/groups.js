@@ -70,10 +70,19 @@ export async function usarConviteParticipante(token, sessaoToken) {
   return await rpc("usar_convite_participante", { p_token: token, p_sessao_token: sessaoToken });
 }
 
-export async function atualizarConfigGrupo({ grupoId, sessaoToken, valorAposta, apiUrl, bonusGeral, regras }) {
+export async function atualizarConfigGrupo({ grupoId, sessaoToken, valorAposta, apiUrl, bonusGeral, regras, campeaoRealId, viceCampeaoRealId, artilheiroRealNome, artilheiroRealSelecao, adminSenha }) {
   return await rpc("atualizar_config_grupo_v2", {
     p_grupo_id: grupoId, p_sessao_token: sessaoToken,
     p_valor_aposta: valorAposta, p_api_url: apiUrl,
     p_bonus_geral: bonusGeral, p_regras: regras,
+    p_campeao_real_id: campeaoRealId || null,
+    p_vice_campeao_real_id: viceCampeaoRealId || null,
+    p_artilheiro_real_nome: artilheiroRealNome || null,
+    p_artilheiro_real_selecao: artilheiroRealSelecao || null,
+    p_admin_senha: adminSenha || null,
   });
+}
+
+export async function removerMembro(grupoId, membroProfileId, sessaoToken) {
+  return await rpc("remover_membro_grupo_v2", { p_grupo_id: grupoId, p_membro_profile_id: membroProfileId, p_sessao_token: sessaoToken });
 }

@@ -85,17 +85,23 @@ function buildBracket(stages, resultados) {
   return { bracket, groups, knockouts };
 }
 
+function encurtarHora(h) {
+  if (!h) return "";
+  return h.length > 5 ? h.substring(0, 5) : h;
+}
+
 function normalizarPartida(m) {
   let horarioBrasilia = "";
   if (m.data_iso && m.horario) {
-    try {
-      const d = new Date(m.data_iso + "T" + m.horario + ":00");
-      horarioBrasilia = String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + m.horario;
-    } catch {
-      horarioBrasilia = m.data_iso + " " + m.horario;
+    const hora = encurtarHora(m.horario);
+    const partes = m.data_iso.split("-");
+    if (partes.length === 3) {
+      horarioBrasilia = partes[2] + "/" + partes[1] + " " + hora;
+    } else {
+      horarioBrasilia = (m.data_iso || "") + " " + hora;
     }
   }
-  return { ...m, time_a: m.time_a_nome, time_b: m.time_b_nome, horario_brasilia: horarioBrasilia };
+  return { ...m, time_a: m.time_a || m.time_a_nome, time_b: m.time_b || m.time_b_nome, horario_brasilia: horarioBrasilia };
 }
 
 function gerarHTMLDownload(innerHtml, titulo, temporada, campeoReal) {
@@ -150,7 +156,8 @@ function GrupoCard({ stage, resultados }) {
                 ) : (
                   <div>
                     <div style={{ fontSize: 8, color: "#4B5563", fontWeight: 700, letterSpacing: 0.3, lineHeight: 1.4 }}>{h.horario_brasilia.split(" ")[0] || h.data_iso}</div>
-                    <div style={{ fontSize: 11, color: "#8B9CC8", fontWeight: 800 }}>{h.horario_brasilia.split(" ")[1] || h.horario}</div>
+                    <div style={{ fontSize: 11, color: "#8B9CC8", fontWeight: 800 }}>{h.horario_brasilia.split(" ")[1] || encurtarHora(h.horario)}</div>
+                    {h.estadio && <div style={{ fontSize: 7, color: "#4B5563", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 58 }}>{h.estadio}</div>}
                   </div>
                 )}
               </div>
@@ -210,7 +217,10 @@ function KoJogo({ jogo, resultados, isFinal }) {
 
   return (
     <div style={{ background: "#111827", border: "1px solid " + (isFinal ? "#FFD700" : "#1E2A45"), borderRadius: 10, overflow: "hidden", boxShadow: isFinal ? "0 0 20px rgba(255,215,0,0.12)" : "none" }}>
-      <div style={{ padding: "3px 8px", fontSize: 9, textAlign: "center", fontWeight: 700, letterSpacing: 0.5, background: isFinal ? "rgba(255,215,0,0.12)" : "rgba(0,51,160,0.2)", color: isFinal ? "#FFD700" : "#8B9CC8" }}>{hora.horario_brasilia}</div>
+      <div style={{ padding: "3px 8px", fontSize: 9, textAlign: "center", fontWeight: 700, letterSpacing: 0.5, background: isFinal ? "rgba(255,215,0,0.12)" : "rgba(0,51,160,0.2)", color: isFinal ? "#FFD700" : "#8B9CC8" }}>
+        <div>{hora.horario_brasilia}</div>
+        {hora.estadio && <div style={{ fontSize: 7, color: "#6B7280", fontWeight: 400 }}>{hora.estadio}</div>}
+      </div>
       {lados.map((l, i) => (
         <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 10px", borderBottom: i === 0 ? "1px solid rgba(30,42,69,0.5)" : "none", background: l.nome === vencedor ? "rgba(255,215,0,0.05)" : "transparent" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>

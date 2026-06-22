@@ -164,7 +164,7 @@ export default function App() {
           ) : <Login onLogin={handleLogin} />
         } />
         <Route path="tabela" element={
-          <Tabela resultados={resultados} campeoReal={campeoReal} onVoltar={() => navigate(-1)} />
+          <Tabela resultados={resultados} campeoReal={campeoReal} onVoltar={() => navigateTo("minhas-cartelas")} />
         } />
         <Route path="trocar-senha" element={user ? <TrocarSenha /> : <Login onLogin={handleLogin} />} />
         <Route path="*" element={<Login onLogin={handleLogin} />} />

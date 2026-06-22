@@ -127,7 +127,12 @@ CREATE OR REPLACE FUNCTION atualizar_config_grupo_v2(
   p_valor_aposta NUMERIC DEFAULT NULL,
   p_api_url TEXT DEFAULT NULL,
   p_bonus_geral NUMERIC DEFAULT NULL,
-  p_regras JSONB DEFAULT NULL
+  p_regras JSONB DEFAULT NULL,
+  p_campeao_real_id UUID DEFAULT NULL,
+  p_vice_campeao_real_id UUID DEFAULT NULL,
+  p_artilheiro_real_nome TEXT DEFAULT NULL,
+  p_artilheiro_real_selecao TEXT DEFAULT NULL,
+  p_admin_senha TEXT DEFAULT NULL
 )
 RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER SET search_path = 'public' AS $$
 DECLARE v_profile_id UUID; v_role TEXT;
@@ -141,8 +146,29 @@ BEGIN
     api_url = COALESCE(p_api_url, api_url),
     bonus_geral = COALESCE(p_bonus_geral, bonus_geral),
     regras = COALESCE(p_regras, regras),
+    campeao_real_id = COALESCE(p_campeao_real_id, campeao_real_id),
+    vice_campeao_real_id = COALESCE(p_vice_campeao_real_id, vice_campeao_real_id),
+    artilheiro_real_nome = COALESCE(p_artilheiro_real_nome, artilheiro_real_nome),
+    artilheiro_real_selecao = COALESCE(p_artilheiro_real_selecao, artilheiro_real_selecao),
+    admin_senha = COALESCE(p_admin_senha, admin_senha),
     updated_at = NOW()
   WHERE grupo_id = p_grupo_id;
+  RETURN json_build_object('ok', true);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION remover_membro_grupo_v2(
+  p_grupo_id UUID, p_membro_profile_id UUID, p_sessao_token UUID
+)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER SET search_path = 'public' AS $$
+DECLARE v_profile_id UUID; v_role TEXT;
+BEGIN
+  SELECT id INTO v_profile_id FROM profiles WHERE sessao_token = p_sessao_token;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Sessão inválida'; END IF;
+  SELECT role INTO v_role FROM group_members WHERE grupo_id = p_grupo_id AND profile_id = v_profile_id;
+  IF v_role IS NULL OR v_role != 'admin' THEN RAISE EXCEPTION 'Apenas admin pode remover membros'; END IF;
+  IF v_profile_id = p_membro_profile_id THEN RAISE EXCEPTION 'Admin não pode remover a si mesmo'; END IF;
+  DELETE FROM group_members WHERE grupo_id = p_grupo_id AND profile_id = p_membro_profile_id;
   RETURN json_build_object('ok', true);
 END;
 $$;

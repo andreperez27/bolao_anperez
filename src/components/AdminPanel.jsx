@@ -5,8 +5,8 @@ import { StatusBadge } from "./StatusBadge";
 import { useGrupo } from "../contexts/GrupoContext";
 import { getSession } from "../services/auth";
 import { getFasesComPartidas, salvarResultado, listarTimesEdicao } from "../services/competitions";
-import { buscarConfigGrupo, atualizarConfigGrupo, listarMembros } from "../services/groups";
-import { listarPredictions, validarPrediction } from "../services/predictions";
+import { buscarConfigGrupo, atualizarConfigGrupo, listarMembros, removerMembro } from "../services/groups";
+import { listarPredictions, listarPredictionsExcluidas, validarPrediction, restaurarPrediction, excluirPredictionDefinitivo } from "../services/predictions";
 import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
 
 function normalizarPartida(m) {
@@ -55,15 +55,16 @@ const TABS = [
   { key: "validar", label: "Validar" },
   { key: "resultados", label: "Resultados" },
   { key: "membros", label: "Membros" },
+  { key: "lixeira", label: "Lixeira" },
   { key: "config", label: "Config" },
 ];
 
 export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }) {
-  const { grupoId, membership, edition } = useGrupo();
+  const { grupoId, membership, edition, config: grupoConfig } = useGrupo();
   const session = getSession();
+  const sessaoToken = session?.sessao_token;
   const isAdmin = membership?.role === "admin";
   const editionId = edition?.edition_id || edition?.id;
-
   const [aba, setAba] = useState("validar");
 
   const [predictions, setPredictions] = useState([]);
@@ -71,15 +72,16 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
   const [times, setTimes] = useState([]);
   const [membros, setMembros] = useState([]);
   const [config, setConfig] = useState(null);
+  const [excluidas, setExcluidas] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
-    if (!grupoId || !session?.sessao_token) return;
+    if (!grupoId || !sessaoToken) return;
     setLoading(true);
     try {
       const [preds, memb, cfg] = await Promise.all([
         listarPredictions(grupoId),
-        listarMembros(grupoId, session.sessao_token).catch(() => []),
+        listarMembros(grupoId, sessaoToken).catch(() => []),
         buscarConfigGrupo(grupoId).catch(() => null),
       ]);
       setPredictions(Array.isArray(preds) ? preds : []);
@@ -87,7 +89,7 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
       setConfig(cfg);
     } catch {}
     setLoading(false);
-  }, [grupoId, session?.sessao_token]);
+  }, [grupoId, sessaoToken]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -103,6 +105,15 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
     }).catch(() => {}).finally(() => setLoading(false));
   }, [editionId]);
 
+  // carregar excluídas quando lixeira tab for aberta
+  const carregarExcluidas = useCallback(async () => {
+    if (!grupoId || !sessaoToken) return;
+    try {
+      const data = await listarPredictionsExcluidas(grupoId, sessaoToken);
+      setExcluidas(Array.isArray(data) ? data : []);
+    } catch { setExcluidas([]); }
+  }, [grupoId, sessaoToken]);
+
   // apenas admin vê o painel
   if (!isAdmin) return null;
 
@@ -110,11 +121,14 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
   const [valorAposta, setValorAposta] = useState(20);
   const [bonusGeral, setBonusGeral] = useState(0);
   const [apiUrl, setApiUrl] = useState("");
+  const [adminSenha, setAdminSenha] = useState("");
+
   useEffect(() => {
     if (config) {
       setValorAposta(config.valor_aposta ?? 20);
       setBonusGeral(config.bonus_geral ?? 0);
       setApiUrl(config.api_url ?? "");
+      setAdminSenha(config.admin_senha ?? "");
     }
   }, [config]);
 
@@ -123,6 +137,34 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
   useEffect(() => { setResultadosEdit(resultados || {}); }, [resultados]);
   const [buscaMsg, setBuscaMsg] = useState("");
   const [buscando, setBuscando] = useState(false);
+
+  // reais UI state
+  const [campeaoRealId, setCampeaoRealId] = useState("");
+  const [viceCampeaoRealId, setViceCampeaoRealId] = useState("");
+  const [artilheiroRealNome, setArtilheiroRealNome] = useState("");
+  const [artilheiroRealSelecao, setArtilheiroRealSelecao] = useState("");
+
+  useEffect(() => {
+    if (config) {
+      setCampeaoRealId(config.campeao_real_id || "");
+      setViceCampeaoRealId(config.vice_campeao_real_id || "");
+      setArtilheiroRealNome(config.artilheiro_real_nome || "");
+      setArtilheiroRealSelecao(config.artilheiro_real_selecao || "");
+    }
+  }, [config]);
+
+  const salvarReais = useCallback(async (campeaoId, viceId, artNome, artSelecao) => {
+    if (!grupoId || !sessaoToken) return;
+    try {
+      await atualizarConfigGrupo({
+        grupoId, sessaoToken,
+        campeaoRealId: campeaoId || null,
+        viceCampeaoRealId: viceId || null,
+        artilheiroRealNome: artNome || null,
+        artilheiroRealSelecao: artSelecao || null,
+      });
+    } catch (e) { console.error("Erro ao salvar dados reais:", e); }
+  }, [grupoId, sessaoToken]);
 
   const handleSalvarResultado = useCallback(async (matchId, ga, gb) => {
     const atualizado = { ...resultadosEdit, [matchId]: { placar_a: Number(ga), placar_b: Number(gb) } };
@@ -159,20 +201,38 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
   const handleSalvarConfig = useCallback(async () => {
     try {
       await atualizarConfigGrupo({
-        grupoId, sessaoToken: session?.sessao_token,
+        grupoId, sessaoToken,
         valorAposta: Number(valorAposta),
         bonusGeral: Number(bonusGeral),
         apiUrl: apiUrl || null,
+        adminSenha: adminSenha || null,
       });
       alert("Configuração salva!");
     } catch (e) {
       alert("Erro: " + (e.message || "desconhecido"));
     }
-  }, [grupoId, session?.sessao_token, valorAposta, bonusGeral, apiUrl]);
+  }, [grupoId, sessaoToken, valorAposta, bonusGeral, apiUrl, adminSenha]);
 
   const handleValidar = useCallback(async (id, status) => {
-    try { await validarPrediction(id, session?.sessao_token, status); loadAll(); } catch (e) { alert("Erro: " + e.message); }
-  }, [session?.sessao_token, loadAll]);
+    try { await validarPrediction(id, sessaoToken, status); loadAll(); } catch (e) { alert("Erro: " + e.message); }
+  }, [sessaoToken, loadAll]);
+
+  const handleRemoverMembro = useCallback(async (profileId, nome) => {
+    if (!window.confirm(`Remover ${nome} do grupo?`)) return;
+    try {
+      await removerMembro(grupoId, profileId, sessaoToken);
+      loadAll();
+    } catch (e) { alert("Erro: " + e.message); }
+  }, [grupoId, sessaoToken, loadAll]);
+
+  const handleRestaurar = useCallback(async (id) => {
+    try { await restaurarPrediction(id, sessaoToken); carregarExcluidas(); } catch (e) { alert("Erro: " + e.message); }
+  }, [sessaoToken, carregarExcluidas]);
+
+  const handleExcluirDefinitivo = useCallback(async (id) => {
+    if (!window.confirm("Excluir permanentemente? Esta ação não pode ser desfeita.")) return;
+    try { await excluirPredictionDefinitivo(id, sessaoToken); carregarExcluidas(); } catch (e) { alert("Erro: " + e.message); }
+  }, [sessaoToken, carregarExcluidas]);
 
   const fasesParaMostrar = stages.filter(s => s.stage_tipo === "knockout" || s.stage_tipo === "groups");
 
@@ -180,11 +240,17 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
     return <div style={{ textAlign: "center", color: "#8B9CC8", padding: 20, fontSize: 13 }}>Carregando...</div>;
   }
 
+  const selectStyle = {
+    width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8,
+    color: "#F0F4FF", padding: "10px 12px", fontSize: 14, fontWeight: 500,
+    boxSizing: "border-box", cursor: "pointer",
+  };
+
   return (
     <div style={{ marginTop: 20 }}>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
         {TABS.map(tab => (
-          <button key={tab.key} onClick={() => setAba(tab.key)}
+          <button key={tab.key} onClick={() => { setAba(tab.key); if (tab.key === "lixeira") carregarExcluidas(); }}
             style={{ flex: 1, minWidth: 60, padding: "10px", background: aba === tab.key ? "#C8102E" : "#111827", color: aba === tab.key ? "#fff" : "#8B9CC8", border: "1px solid " + (aba === tab.key ? "#C8102E" : "#1E2A45"), borderRadius: 8, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
             {tab.label}
           </button>
@@ -236,7 +302,38 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
         <Card style={{ border: "2px solid #C8102E44" }}>
           <div style={{ color: "#C8102E", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>Resultados dos Jogos</div>
 
-          <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
+          {/* Campeão Real */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ color: "#FFD700", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>Campeão Real</div>
+            <select value={campeaoRealId} onChange={e => { const v = e.target.value; setCampeaoRealId(v); salvarReais(v, viceCampeaoRealId, artilheiroRealNome, artilheiroRealSelecao); }} style={selectStyle}>
+              <option value="">— Selecione —</option>
+              {times.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+            </select>
+          </div>
+
+          {/* Vice-Campeão Real */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ color: "#FFD700", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>Vice-Campeão Real</div>
+            <select value={viceCampeaoRealId} onChange={e => { const v = e.target.value; setViceCampeaoRealId(v); salvarReais(campeaoRealId, v, artilheiroRealNome, artilheiroRealSelecao); }} style={selectStyle}>
+              <option value="">— Selecione —</option>
+              {times.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+            </select>
+          </div>
+
+          {/* Artilheiro Real */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ color: "#FFD700", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>Artilheiro Real</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={artilheiroRealNome} onChange={e => { const v = e.target.value; setArtilheiroRealNome(v); salvarReais(campeaoRealId, viceCampeaoRealId, v, artilheiroRealSelecao); }}
+                placeholder="Nome do artilheiro" style={{ flex: 1, background: "#1a2234", border: "1px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14 }} />
+              <select value={artilheiroRealSelecao} onChange={e => { const v = e.target.value; setArtilheiroRealSelecao(v); salvarReais(campeaoRealId, viceCampeaoRealId, artilheiroRealNome, v); }} style={{ ...selectStyle, width: "auto", minWidth: 140 }}>
+                <option value="">Seleção</option>
+                {times.map(t => <option key={t.id} value={t.nome}>{t.nome}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid rgba(30,42,69,0.5)", paddingTop: 12, marginBottom: 12, display: "flex", gap: 8 }}>
             <input value={apiUrl} onChange={e => setApiUrl(e.target.value)} placeholder="URL da API externa"
               style={{ flex: 1, background: "#1a2234", border: "1px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "8px 12px", fontSize: 13 }} />
             <Btn onClick={handleBuscarAPI} cor="#0033A0" disabled={buscando} style={{ padding: "8px 14px", fontSize: 12 }}>
@@ -279,17 +376,61 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
             membros.map((m, i) => (
               <div key={m.profile_id || i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px", borderBottom: "1px solid rgba(30,42,69,0.25)" }}>
                 <div style={{ width: 28, height: 28, borderRadius: "50%", background: m.role === "admin" ? "#C8102E" : "#0033A0", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
-                  {(m.nome || m.profile_nome || "?")[0].toUpperCase()}
+                  {(m.nome || "?")[0].toUpperCase()}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ color: "#F0F4FF", fontWeight: 600, fontSize: 14 }}>{m.nome || m.profile_nome || "—"}</div>
+                  <div style={{ color: "#F0F4FF", fontWeight: 600, fontSize: 14 }}>{m.nome || "—"}</div>
                   <div style={{ color: "#8B9CC8", fontSize: 11 }}>{m.role === "admin" ? "Admin" : "Participante"}</div>
                 </div>
                 {m.role === "admin" && <span style={{ background: "#C8102E22", color: "#C8102E", padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>ADMIN</span>}
+                {m.role !== "admin" && (
+                  <button onClick={() => handleRemoverMembro(m.profile_id, m.nome)}
+                    style={{ background: "transparent", border: "1px solid #C8102E44", borderRadius: 6, color: "#C8102E", padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                    Remover
+                  </button>
+                )}
               </div>
             ))
           )}
           <div style={{ color: "#8B9CC8", fontSize: 11, marginTop: 10, textAlign: "center" }}>{membros.length} membro{membros.length !== 1 ? "s" : ""}</div>
+        </Card>
+      )}
+
+      {/* LIXEIRA */}
+      {aba === "lixeira" && (
+        <Card style={{ border: "2px solid #6b21a844" }}>
+          <div style={{ color: "#a855f7", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>Cartelas Excluídas</div>
+          {excluidas.length === 0 ? (
+            <div style={{ color: "#8B9CC8", fontSize: 13, textAlign: "center", padding: 12 }}>Nenhuma cartela na lixeira.</div>
+          ) : (
+            excluidas.map(c => (
+              <div key={c.id} style={{ background: "#0d1b2a", borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 14 }}>{c.participante} — {c.nome || "Cartela"}</div>
+                    <div style={{ color: "#8B9CC8", fontSize: 11, marginTop: 2 }}>
+                      {Object.keys(c.palpites || {}).filter(k => k !== "__campeo").length} palpites · Campeão: {c.campeao_nome || "—"}
+                      {c.vice_campeao_nome ? ` · Vice: ${c.vice_campeao_nome}` : ""}
+                      {c.artilheiro_nome ? ` · Art: ${c.artilheiro_nome}` : ""}
+                    </div>
+                    <div style={{ color: "#6b7280", fontSize: 10, marginTop: 2 }}>
+                      Excluída em: {c.deleted_at ? new Date(c.deleted_at).toLocaleString("pt-BR") : "—"}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => handleRestaurar(c.id)}
+                      style={{ background: "#16a34a", border: "none", borderRadius: 6, color: "#fff", padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                      Restaurar
+                    </button>
+                    <button onClick={() => handleExcluirDefinitivo(c.id)}
+                      style={{ background: "#C8102E", border: "none", borderRadius: 6, color: "#fff", padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </Card>
       )}
 
@@ -311,6 +452,11 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
             <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Pontos extras (bônus geral)</div>
             <input type="number" min="0" value={bonusGeral} onChange={e => setBonusGeral(e.target.value)} placeholder="0"
               style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#16a34a", padding: "10px 12px", fontSize: 18, fontWeight: 700 }} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Senha do Administrador</div>
+            <input type="text" value={adminSenha} onChange={e => setAdminSenha(e.target.value)} placeholder="Senha para acesso do admin"
+              style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14 }} />
           </div>
           <Btn onClick={handleSalvarConfig} cor="#0033A0" style={{ width: "100%" }}>Salvar Configuração</Btn>
         </Card>

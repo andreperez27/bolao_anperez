@@ -29,3 +29,15 @@ export async function excluirPrediction(id, sessaoToken) {
 export async function getRanking(grupoId) {
   return await rpc("calcular_ranking", { p_grupo_id: grupoId });
 }
+
+export async function listarPredictionsExcluidas(grupoId, sessaoToken) {
+  return await rpc("listar_predictions_excluidas", { p_grupo_id: grupoId, p_sessao_token: sessaoToken });
+}
+
+export async function restaurarPrediction(id, sessaoToken) {
+  return await rpc("restaurar_prediction", { p_id: id, p_sessao_token: sessaoToken });
+}
+
+export async function excluirPredictionDefinitivo(id, sessaoToken) {
+  return await rpc("excluir_prediction_definitivo", { p_id: id, p_sessao_token: sessaoToken });
+}

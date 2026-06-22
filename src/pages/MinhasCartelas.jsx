@@ -54,10 +54,26 @@ export default function MinhasCartelas({
   onVerTabela,
 }) {
   const { jogador, user } = useAuth();
-  const { membership } = useGrupo();
+  const { membership, edition } = useGrupo();
   const [confirmDelete, setConfirmDelete] = React.useState(null);
   const [confirmConta, setConfirmConta] = React.useState(false);
   const [tabAtiva, setTabAtiva] = React.useState("cartelas");
+  const [partidas, setPartidas] = React.useState([]);
+
+  React.useEffect(() => {
+    if (!edition?.edition_id && !edition?.id) return;
+    import("../services/competitions").then(({ getFasesComPartidas }) => {
+      getFasesComPartidas(edition.edition_id || edition.id).then((stages) => {
+        const flat = [];
+        for (const st of Array.isArray(stages) ? stages : []) {
+          if (Array.isArray(st.partidas)) {
+            for (const p of st.partidas) flat.push(p);
+          }
+        }
+        setPartidas(flat);
+      }).catch(() => {});
+    }).catch(() => {});
+  }, [edition?.edition_id, edition?.id]);
 
   useEffect(() => {
     if (onRefreshCartelas) onRefreshCartelas();
@@ -240,7 +256,7 @@ export default function MinhasCartelas({
         </div>
 
         {tabAtiva === "jogos" && (
-          <JogosDoDia resultados={resultados} palpites={palpitesAgregados} />
+          <JogosDoDia resultados={resultados} partidas={partidas} palpites={palpitesAgregados} />
         )}
 
         {tabAtiva === "cartelas" && (
