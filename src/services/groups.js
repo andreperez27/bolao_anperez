@@ -63,7 +63,11 @@ export async function atualizarGrupo({ grupoId, sessaoToken, nome, slug }) {
 }
 
 export async function gerarConviteParticipante(grupoId, sessaoToken, validadeDias = 30, maxUsos = 0, inviteType = "convite_aprovacao") {
-  return await rpc("gerar_convite_v2", { p_grupo_id: grupoId, p_sessao_token: sessaoToken, p_validade_dias: validadeDias, p_max_usos: maxUsos, p_invite_type: inviteType });
+  const params = { p_grupo_id: grupoId, p_sessao_token: sessaoToken, p_validade_dias: validadeDias, p_max_usos: maxUsos, p_invite_type: inviteType };
+  console.log("gerarConviteParticipante params:", params);
+  const result = await rpc("gerar_convite_v2", params);
+  console.log("gerarConviteParticipante result:", result);
+  return result;
 }
 
 export async function validarConvite(token) {
