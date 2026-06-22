@@ -6,12 +6,15 @@ export async function listarPredictions(grupoId, profileId) {
   return await rpc("listar_predictions", params);
 }
 
-export async function salvarPrediction({ id, grupoId, sessaoToken, participante, nome, palpites, campeaoId, campeaoFase }) {
+export async function salvarPrediction({ id, grupoId, sessaoToken, participante, nome, palpites, campeaoId, campeaoFase, viceCampeaoId, artilheiroNome, artilheiroSelecao }) {
   return await rpc("salvar_prediction", {
     p_id: id, p_grupo_id: grupoId, p_sessao_token: sessaoToken,
     p_participante: participante, p_nome: nome || "Cartela",
     p_palpites: palpites || {}, p_campeao_id: campeaoId || null,
     p_campeao_fase: campeaoFase || null,
+    p_vice_campeao_id: viceCampeaoId || null,
+    p_artilheiro_nome: artilheiroNome || null,
+    p_artilheiro_selecao: artilheiroSelecao || null,
   });
 }
 

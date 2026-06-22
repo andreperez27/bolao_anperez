@@ -203,7 +203,7 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
                 <div style={{ flex: 1 }}>
                   <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 14 }}>{c.participante} — {c.nome || "Cartela"}</div>
                   <div style={{ color: "#8B9CC8", fontSize: 12 }}>
-                    {Object.keys(c.palpites || {}).filter(k => k !== "__campeo").length} palpites · Campeão: {c.campeao_nome || "—"} · <StatusBadge status={c.status} />
+                    {Object.keys(c.palpites || {}).filter(k => k !== "__campeo").length} palpites · Campeão: {c.campeao_nome || "—"} {c.vice_campeao_nome ? `· Vice: ${c.vice_campeao_nome}` : ""} {c.artilheiro_nome ? `· Art: ${c.artilheiro_nome}` : ""} · <StatusBadge status={c.status} />
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>

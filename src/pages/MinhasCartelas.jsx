@@ -337,7 +337,9 @@ export default function MinhasCartelas({
                     </div>
                     <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>
                       {preenchidos} palpites {"·"} Campeão:{" "}
-                      {c.campeao || "—"}
+                      {c.campeao_nome || c.campeao || "—"}
+                      {c.vice_campeao_nome ? ` · Vice: ${c.vice_campeao_nome}` : ""}
+                      {c.artilheiro_nome ? ` · Artilheiro: ${c.artilheiro_nome}` : ""}
                     </div>
                     <div style={{ marginTop: 4 }}>
                       <StatusBadge status={c.status} />

@@ -49,6 +49,8 @@ export function baixarCartelaHTML(cartela, participante, partidas) {
 
   const faseLabel = cartela.campeao_fase === "grupos" ? "Fase de Grupos" : cartela.campeao_fase === "1_16" ? "Segunda Rodada" : cartela.campeao_fase === "oitavas" ? "Oitavas" : cartela.campeao_fase === "quartas" ? "Quartas" : cartela.campeao_fase === "semi" ? "Semifinal" : "Final";
   html += `<div class="footer"><strong>Campeão:</strong> ${(cartela.campeao || cartela.campeao_nome || "—").replace(/</g, "&lt;")}${cartela.campeao_fase ? `<span style="color:#666;font-size:11px;margin-left:8px">(definido na ${faseLabel})</span>` : ""}</div>`;
+  if (cartela.vice_campeao_nome) html += `<div class="footer"><strong>Vice:</strong> ${cartela.vice_campeao_nome.replace(/</g, "&lt;")}</div>`;
+  if (cartela.artilheiro_nome) html += `<div class="footer"><strong>Artilheiro:</strong> ${cartela.artilheiro_nome.replace(/</g, "&lt;")}${cartela.artilheiro_selecao ? ` (${cartela.artilheiro_selecao.replace(/</g, "&lt;")})` : ""}</div>`;
   html += `</body></html>`;
 
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });

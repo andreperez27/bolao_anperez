@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Card } from "../components/Card";
 import { Btn } from "../components/Btn";
 import { JogoCard } from "../components/JogoCard";
-import { getFaseAtual, pontosCampeaoPorFase } from "../utils/pontuacao";
+import { getFaseAtual, pontosCampeaoPorFase, pontosVicePorFase, PONTOS_ARTILHEIRO, PONTOS_COMBO } from "../utils/pontuacao";
 import { isJogoBloqueado } from "../utils/datas";
 import { listarCartelasIA } from "../services/ia";
 import SugestoesIA from "../components/SugestoesIA";
@@ -75,6 +75,9 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
   const [nomeCartela, setNomeCartela] = useState(cartela?.nome || "");
   const [palpites, setPalpites] = useState(cartela?.palpites || {});
   const [campeaoId, setCampeaoId] = useState(cartela?.campeao_id || "");
+  const [viceCampeaoId, setViceCampeaoId] = useState(cartela?.vice_campeao_id || "");
+  const [artilheiroNome, setArtilheiroNome] = useState(cartela?.artilheiro_nome || "");
+  const [artilheiroSelecao, setArtilheiroSelecao] = useState(cartela?.artilheiro_selecao || "");
   const [grupoAtivo, setGrupoAtivo] = useState("");
   const [iaCartelas, setIaCartelas] = useState([]);
   const [campeaoTravado, setCampeaoTravado] = useState(false);
@@ -174,6 +177,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
       palpites: novos,
       campeaoId: teamMatch?.id || null,
       campeao_fase: campeaoIA ? faseAtual : undefined,
+      viceCampeaoId, artilheiroNome, artilheiroSelecao,
     });
   };
 
@@ -212,6 +216,9 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
       palpites: palpitesFiltrados,
       campeaoId: campeaoId || null,
       campeao_fase: novaCampeaoFase,
+      viceCampeaoId: viceCampeaoId || null,
+      artilheiroNome: artilheiroNome.trim() || null,
+      artilheiroSelecao: artilheiroSelecao || null,
     });
   };
 
@@ -404,6 +411,85 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
               {"\uD83D\uDD12"} Travado — {faseLabel} já começou. Clique no cadeado para desbloquear (pontos caem para {pontosCampeaoSeMudar} pts).
             </div>
           )}
+        </Card>
+
+        <Card style={{ marginBottom: 14, border: "2px solid #C0C0C044" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span style={{ color: "#C0C0C0", fontWeight: 800, fontSize: 14 }}>
+              {"\uD83E\uDD48"} Vice-campeão +{pontosVicePorFase(cartela?.campeao_fase || faseAtual)} pts
+            </span>
+            <span style={{ color: "#8B9CC8", fontSize: 12, fontWeight: 400 }}>
+              ({cartela?.campeao_fase ? pontosVicePorFase(cartela.campeao_fase) + " pts na " + headingLabel(cartela.campeao_fase) : faseLabel})
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <select
+              value={viceCampeaoId}
+              onChange={(e) => setViceCampeaoId(e.target.value)}
+              disabled={!isDono}
+              style={{
+                flex: 1,
+                background: "#1a2234",
+                border: "2px solid " + (viceCampeaoId ? "#C0C0C0" : "#1E2A45"),
+                borderRadius: 8,
+                color: viceCampeaoId ? "#C0C0C0" : "#8B9CC8",
+                padding: "10px 12px", fontSize: 15,
+                fontWeight: viceCampeaoId ? 700 : 400,
+                cursor: "pointer",
+              }}
+            >
+              <option value="">Selecione o vice...</option>
+              {times.filter(t => t.id !== campeaoId).map((t) => (
+                <option key={t.id} value={t.id}>{t.nome}</option>
+              ))}
+            </select>
+          </div>
+        </Card>
+
+        <Card style={{ marginBottom: 14, border: "2px solid #22d3ee44" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span style={{ color: "#22d3ee", fontWeight: 800, fontSize: 14 }}>
+              {"\u26BD"} Artilheiro +{PONTOS_ARTILHEIRO} pts
+            </span>
+            <span style={{ color: "#8B9CC8", fontSize: 12, fontWeight: 400 }}>
+              (bônus combo +{PONTOS_COMBO} se acertar campeão + vice + artilheiro)
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              value={artilheiroNome}
+              onChange={(e) => setArtilheiroNome(e.target.value)}
+              disabled={!isDono}
+              placeholder="Nome do artilheiro"
+              maxLength={60}
+              style={{
+                flex: 1,
+                background: "#1a2234",
+                border: "2px solid " + (artilheiroNome ? "#22d3ee" : "#1E2A45"),
+                borderRadius: 8,
+                color: artilheiroNome ? "#22d3ee" : "#F0F4FF",
+                padding: "10px 12px", fontSize: 15,
+              }}
+            />
+            <select
+              value={artilheiroSelecao}
+              onChange={(e) => setArtilheiroSelecao(e.target.value)}
+              disabled={!isDono}
+              style={{
+                background: "#1a2234",
+                border: "2px solid #1E2A45",
+                borderRadius: 8,
+                color: "#F0F4FF",
+                padding: "10px 12px", fontSize: 13,
+                cursor: "pointer",
+              }}
+            >
+              <option value="">Seleção</option>
+              {times.map((t) => (
+                <option key={t.id} value={t.nome}>{t.nome}</option>
+              ))}
+            </select>
+          </div>
         </Card>
 
         {stages.length > 0 && (

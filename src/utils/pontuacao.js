@@ -31,6 +31,14 @@ export function pontosCampeaoPorFase(fase) {
   return mapa[fase] || 20;
 }
 
+export function pontosVicePorFase(fase) {
+  const mapa = { grupos: 15, "1_16": 14, oitavas: 11, quartas: 8, semi: 4, final: 2 };
+  return mapa[fase] || 15;
+}
+
+export const PONTOS_ARTILHEIRO = 15;
+export const PONTOS_COMBO = 25;
+
 export function contarEmpatesPalpitados(palpites) {
   if (!palpites) return 0;
   return Object.entries(palpites).filter(([k, v]) => {
