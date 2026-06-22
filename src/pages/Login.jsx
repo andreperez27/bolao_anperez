@@ -61,12 +61,12 @@ export default function Login({ onLogin }) {
               placeholder="Seu nome"
               onKeyDown={(e) => e.key === "Enter" && !modo && senha && handleEntrar()}
               style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 14px", fontSize: 16, boxSizing: "border-box", marginBottom: 10 }} />
-            <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)}
+            <input type="password" value={senha} onChange={(e) => { setSenha(e.target.value); setErro(""); }}
               placeholder="Senha"
               onKeyDown={(e) => e.key === "Enter" && modo === "cadastro" ? confirmSenha && handleCadastrar() : handleEntrar()}
               style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 14px", fontSize: 16, boxSizing: "border-box", marginBottom: 14 }} />
             {modo === "cadastro" && (
-              <input type="password" value={confirmSenha} onChange={(e) => setConfirmSenha(e.target.value)}
+              <input type="password" value={confirmSenha} onChange={(e) => { setConfirmSenha(e.target.value); setErro(""); }}
                 placeholder="Confirmar senha"
                 onKeyDown={(e) => e.key === "Enter" && handleCadastrar()}
                 style={{ width: "100%", background: confirmSenha && confirmSenha !== senha ? "#2a1a1a" : "#1a2234", border: `2px solid ${confirmSenha && confirmSenha !== senha ? "#C8102E" : "#1E2A45"}`, borderRadius: 8, color: "#F0F4FF", padding: "10px 14px", fontSize: 16, boxSizing: "border-box", marginBottom: 14 }} />
