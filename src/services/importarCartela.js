@@ -1,4 +1,4 @@
-import { JOGOS_TODOS, normalizarNomePais } from "./jogos";
+import { normalizarNomePais } from "../utils/bandeiras";
 
 function limparNome(nome) {
   return normalizarNomePais(nome.replace(/\s+/g, " ").trim());
@@ -10,22 +10,17 @@ function parseISO(dataStr) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-function jogoJaComecou(jogo, dataReferencia) {
+function jogoJaComecou(jogo, dataReferencia, partidas) {
   if (!jogo.data_iso || !dataReferencia) return false;
-  const [dia, mes] = jogo.horario_brasilia.split(" ")[0].split("/");
-  if (!dia || !mes) return false;
-  const ano = dataReferencia.getFullYear();
-  const jogoDate = new Date(ano, parseInt(mes) - 1, parseInt(dia));
-  const partes = jogo.horario_brasilia.split(" ")[1];
-  if (partes) {
-    const [h, m] = partes.split(":");
-    if (h && m) jogoDate.setHours(parseInt(h), parseInt(m), 0, 0);
-  }
+  const m = jogo.horario_brasilia?.match(/(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  if (!m) return false;
+  const jogoDate = new Date(dataReferencia.getFullYear(), parseInt(m[2]) - 1, parseInt(m[1]), parseInt(m[3]), parseInt(m[4]));
   return jogoDate <= dataReferencia;
 }
 
-export function parseCartelaHTML(html, participanteLogado) {
+export function parseCartelaHTML(html, participanteLogado, partidas) {
   const doc = new DOMParser().parseFromString(html, "text/html");
+  const jogosLista = Array.isArray(partidas) && partidas.length ? partidas : [];
 
   const dataEmitidoEl = doc.querySelector(".data[data-emitido]");
   const dataEmitidoStr = dataEmitidoEl?.getAttribute("data-emitido") || "";
@@ -43,10 +38,10 @@ export function parseCartelaHTML(html, participanteLogado) {
       const placarText = tds[1]?.textContent.trim();
       const placarMatch = placarText.match(/(\d+)\s*-\s*(\d+)/);
       if (!jogoId || !placarMatch) return;
-      const jogo = JOGOS_TODOS.find((j) => j.id === jogoId);
+      const jogo = jogosLista.find((j) => j.id === jogoId);
       if (!jogo) return;
       if (dataEmitido && jogoJaComecou(jogo, dataEmitido)) {
-        pulados.push(`${jogo.time_a} × ${jogo.time_b}`);
+        pulados.push(`${jogo.time_a_nome || jogo.time_a} × ${jogo.time_b_nome || jogo.time_b}`);
         return;
       }
       palpites[jogo.id] = { gols_a: Number(placarMatch[1]), gols_b: Number(placarMatch[2]) };
@@ -63,16 +58,16 @@ export function parseCartelaHTML(html, participanteLogado) {
         const placarText = tds[1].textContent.trim();
         const placarMatch = placarText.match(/(\d+)\s*-\s*(\d+)/);
         if (!timeA || !timeB || !placarMatch) return;
-        const jogo = JOGOS_TODOS.find(
-          (j) => (limparNome(j.time_a) === timeA && limparNome(j.time_b) === timeB) ||
-                 (limparNome(j.time_a) === timeB && limparNome(j.time_b) === timeA)
+        const jogo = jogosLista.find(
+          (j) => (limparNome(j.time_a_nome || j.time_a) === timeA && limparNome(j.time_b_nome || j.time_b) === timeB) ||
+                 (limparNome(j.time_a_nome || j.time_a) === timeB && limparNome(j.time_b_nome || j.time_b) === timeA)
         );
         if (!jogo) return;
         if (dataEmitido && jogoJaComecou(jogo, dataEmitido)) {
-          pulados.push(`${jogo.time_a} × ${jogo.time_b}`);
+          pulados.push(`${jogo.time_a_nome || jogo.time_a} × ${jogo.time_b_nome || jogo.time_b}`);
           return;
         }
-        const swapped = limparNome(jogo.time_a) !== timeA;
+        const swapped = limparNome(jogo.time_a_nome || jogo.time_a) !== timeA;
         palpites[jogo.id] = swapped
           ? { gols_a: Number(placarMatch[2]), gols_b: Number(placarMatch[1]) }
           : { gols_a: Number(placarMatch[1]), gols_b: Number(placarMatch[2]) };

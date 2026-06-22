@@ -1,98 +1,47 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from "react";
-import { getSession, limparSession, limparSenhaPadrao, signIn as signInSvc, signUp as signUpSvc, signInAdmin as signInAdminSvc } from "../services/auth";
-import { getJogador } from "../services/jogadores";
-import { useGrupo } from "./GrupoContext";
+import { getSession, limparSession, signIn as signInSvc, signUp as signUpSvc, signOut as signOutSvc, verificarSessao as verificarSessaoSvc } from "../services/auth";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const { grupoId } = useGrupo();
   const [user, setUser] = useState(null);
-  const [jogador, setJogador] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [senhaPadrao, setSenhaPadrao] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
     const session = getSession();
-    if (session) {
-      setUser(session);
-      setIsAdmin(session.isAdmin === true);
-      setSenhaPadrao(session.senhaPadrao === true);
-      if (session.nome && !session.isAdmin) {
-        getJogador(session.nome, grupoId).then(setJogador).catch(() => {});
-      }
+    if (session?.sessao_token) {
+      verificarSessaoSvc(session.sessao_token)
+        .then((data) => setUser({ profile_id: data.id, nome: data.nome, role_global: data.role_global, sessao_token: session.sessao_token }))
+        .catch(() => { limparSession(); setUser(null); })
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [grupoId]);
+  }, []);
 
   const signIn = useCallback(async (nome, senha) => {
-    const data = await signInSvc({ nome, senha, grupoId });
-    setUser(data);
-    setIsAdmin(false);
-    setSenhaPadrao(senha === '123456');
-    if (data.nome) {
-      const p = await getJogador(data.nome, grupoId).catch(() => null);
-      setJogador(p);
-    }
-    return data;
-  }, [grupoId]);
+    const session = await signInSvc({ nome, senha });
+    setUser(session);
+    return session;
+  }, []);
 
   const signUp = useCallback(async (nome, senha) => {
-    const data = await signUpSvc({ nome, senha, grupoId });
-    setUser(data);
-    setIsAdmin(false);
-    setSenhaPadrao(senha === '123456');
-    return data;
-  }, [grupoId]);
-
-  const handleTrocarSenha = useCallback(() => {
-    setSenhaPadrao(false);
-    limparSenhaPadrao();
+    if (senha.length < 6) throw new Error("Senha deve ter pelo menos 6 caracteres");
+    const session = await signUpSvc({ nome, senha });
+    setUser(session);
+    return session;
   }, []);
 
-  const signInAdmin = useCallback(async (senha) => {
-    const data = await signInAdminSvc({ senha, grupoId });
-    setUser(data);
-    setIsAdmin(true);
-    return data;
-  }, [grupoId]);
-
-  const signOut = useCallback(() => {
-    limparSession();
+  const signOut = useCallback(async () => {
+    const session = getSession();
+    if (session?.sessao_token) {
+      await signOutSvc(session.sessao_token);
+    }
     setUser(null);
-    setJogador(null);
-    setIsAdmin(false);
   }, []);
-
-  const refreshJogador = useCallback(async () => {
-    const session = getSession();
-    if (session?.nome && !session.isAdmin) {
-      const p = await getJogador(session.nome, grupoId).catch(() => null);
-      setJogador(p);
-    }
-  }, [grupoId]);
-
-  const refreshUser = useCallback(() => {
-    const session = getSession();
-    if (session) {
-      setUser(session);
-      setIsAdmin(session.isAdmin === true);
-      if (session.nome && !session.isAdmin) {
-        getJogador(session.nome, grupoId).then(setJogador).catch(() => {});
-      }
-    }
-  }, [grupoId]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user, jogador, isAdmin, loading, senhaPadrao,
-        signIn, signUp, signInAdmin, signOut,
-        refreshJogador, refreshUser, handleTrocarSenha,
-      }}
-    >
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

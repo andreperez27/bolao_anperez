@@ -1,22 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Card } from "../components/Card";
 import { Btn } from "../components/Btn";
 import { JogoCard } from "../components/JogoCard";
-import {
-  JOGOS_GRUPOS,
-  JOGOS_1_16,
-  JOGOS_OITAVAS,
-  JOGOS_QUARTAS,
-  JOGOS_SEMI,
-  JOGOS_FINAL,
-  JOGOS_TODOS,
-  TODOS_TIMES,
-} from "../services/jogos";
 import { getFaseAtual, pontosCampeaoPorFase } from "../utils/pontuacao";
 import { isJogoBloqueado } from "../utils/datas";
 import { listarCartelasIA } from "../services/ia";
 import SugestoesIA from "../components/SugestoesIA";
 import { useAuth } from "../contexts/AuthContext";
+import { useGrupo } from "../contexts/GrupoContext";
+import { listarTimesEdicao, getFasesComPartidas } from "../services/competitions";
 
 const CORES_IA_BTN = {
   "🤖 Gemini (Google)": { cor: "#4285F4", label: "Gemini" },
@@ -24,23 +16,105 @@ const CORES_IA_BTN = {
   "🤖 Claude (Anthropic)": { cor: "#d97706", label: "Claude" },
 };
 
+const LABEL_MAP = {
+  "1_16": "Segunda Rodada", "oitavas": "Oitavas", "quartas": "Quartas",
+  "semi": "Semi", "disputa_3": "3º Lugar", "final": "Final",
+};
+
+const TAB_LABEL_MAP = {
+  "1_16": "1/16", "oitavas": "Oit.", "quartas": "Quartas",
+  "semi": "Semi", "disputa_3": "3º", "final": "Final",
+};
+
+const FASE_ORDEM = ["grupos", "1_16", "oitavas", "quartas", "semi", "final"];
+
+function tabLabel(stageSlug) {
+  if (stageSlug.startsWith("grupo_")) return stageSlug.slice(6).toUpperCase();
+  return TAB_LABEL_MAP[stageSlug] || stageSlug;
+}
+
+function headingLabel(stageSlug) {
+  if (stageSlug.startsWith("grupo_")) return "Grupo " + stageSlug.slice(6).toUpperCase();
+  return LABEL_MAP[stageSlug] || stageSlug;
+}
+
+function normalizarPartida(m) {
+  let horarioBrasilia = "";
+  if (m.data_iso && m.horario) {
+    try {
+      const d = new Date(m.data_iso + "T" + m.horario + ":00");
+      horarioBrasilia = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${m.horario}`;
+    } catch {
+      horarioBrasilia = `${m.data_iso} ${m.horario}`;
+    }
+  }
+  return {
+    ...m,
+    id: m.id,
+    time_a: m.time_a_nome,
+    time_b: m.time_b_nome,
+    grupo: m.grupo_letra ? "Grupo " + m.grupo_letra : "",
+    horario_brasilia: horarioBrasilia,
+    data_iso: m.data_iso,
+  };
+}
+
 export default function PreencherCartela({ cartela, resultados, config, onSalvar, onVoltar, onPrintCartela }) {
   const { jogador, user } = useAuth();
+  const { edition } = useGrupo();
   const nomeUsuario = jogador?.nome || user?.nome || "";
   const isDono = !cartela?.participante || cartela.participante === nomeUsuario;
 
+  const editionId = edition?.edition_id || edition?.id;
+
+  const [times, setTimes] = useState([]);
+  const [stages, setStages] = useState([]);
+  const [partidas, setPartidas] = useState([]);
+  const [loadingDados, setLoadingDados] = useState(true);
+
   const [nomeCartela, setNomeCartela] = useState(cartela?.nome || "");
   const [palpites, setPalpites] = useState(cartela?.palpites || {});
-  const [campeao, setCampeao] = useState(cartela?.campeao || "");
-  const [grupoAtivo, setGrupoAtivo] = useState("Grupo A");
+  const [campeaoId, setCampeaoId] = useState(cartela?.campeao_id || "");
+  const [grupoAtivo, setGrupoAtivo] = useState("");
   const [iaCartelas, setIaCartelas] = useState([]);
   const [campeaoTravado, setCampeaoTravado] = useState(false);
 
-  const faseAtual = getFaseAtual(resultados);
+  useEffect(() => {
+    if (!editionId) return;
+    setLoadingDados(true);
+    Promise.all([
+      listarTimesEdicao(editionId),
+      getFasesComPartidas(editionId),
+    ]).then(([timesData, stagesData]) => {
+      const t = Array.isArray(timesData) ? timesData : [];
+      const s = Array.isArray(stagesData) ? stagesData : [];
+      setTimes(t);
+      setStages(s);
+      const flat = [];
+      for (const st of s) {
+        if (Array.isArray(st.partidas)) {
+          for (const p of st.partidas) {
+            flat.push({ ...p, stage_slug: st.stage_slug, stage_nome: st.stage_nome, stage_ordem: st.stage_ordem });
+          }
+        }
+      }
+      setPartidas(flat);
+      setLoadingDados(false);
+    }).catch(() => setLoadingDados(false));
+  }, [editionId]);
+
+  useEffect(() => {
+    if (!grupoAtivo && stages.length > 0) {
+      const first = stages.find(s => s.stage_tipo === "groups") || stages[0];
+      setGrupoAtivo(first.stage_slug);
+    }
+  }, [stages, grupoAtivo]);
 
   useEffect(() => {
     listarCartelasIA().then(setIaCartelas).catch(() => {});
   }, []);
+
+  const faseAtual = getFaseAtual(resultados, partidas);
 
   useEffect(() => {
     if (cartela?.id && faseAtual !== "grupos" && faseAtual !== (cartela?.campeao_fase || "grupos")) {
@@ -50,15 +124,21 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
     }
   }, [cartela?.id, cartela?.campeao_fase, faseAtual]);
 
-  const fasesParaMostrar = [
-    "Grupo A","Grupo B","Grupo C","Grupo D",
-    "Grupo E","Grupo F","Grupo G","Grupo H",
-    "Grupo I","Grupo J","Grupo K","Grupo L",
-    "Segunda Rodada","Oitavas","Quartas","Semi","Final",
-  ];
+  const fasesParaMostrar = useMemo(() => {
+    return stages.map(s => s.stage_slug);
+  }, [stages]);
 
   const isNew = !cartela?.id;
   const valorAposta = config?.valor_aposta || 20;
+
+  const campeaoNome = useMemo(() => {
+    if (campeaoId) {
+      const t = times.find(t => t.id === campeaoId);
+      if (t) return t.nome;
+    }
+    return cartela?.campeao_nome || "";
+  }, [campeaoId, times, cartela?.campeao_nome]);
+
   const pontosCampeaoAtual = pontosCampeaoPorFase(cartela?.campeao_fase || faseAtual);
   const pontosCampeaoSeMudar = pontosCampeaoPorFase(faseAtual);
 
@@ -72,8 +152,8 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
     let count = 0;
     for (const [jogoId, valor] of Object.entries(iaPts)) {
       if (jogoId === "__campeo") continue;
-      const jogo = JOGOS_TODOS.find((j) => j.id === jogoId);
-      if (jogo && isJogoBloqueado(jogo)) continue;
+      const partida = partidas.find((p) => p.id === jogoId);
+      if (partida && isJogoBloqueado(normalizarPartida(partida))) continue;
       novos[jogoId] = valor;
       count++;
     }
@@ -82,16 +162,17 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
       return;
     }
     const campeaoIA = iaCartela.campeao || "";
+    const teamMatch = times.find(t => t.nome === campeaoIA);
     setPalpites(novos);
-    setCampeao(campeaoIA);
+    setCampeaoId(teamMatch?.id || "");
     if (!window.confirm(
-      `Criar nova cartela baseada em ${iaCartela.participante} com ${count} palpites?\n\n` +
-      `Isso substituirá qualquer edição não salva no formulário.`
+      "Criar nova cartela baseada em " + iaCartela.participante + " com " + count + " palpites?\n\n" +
+      "Isso substituirá qualquer edição não salva no formulário."
     )) return;
     onSalvar({
-      nome: `${nomeCartela || nomeUsuario} (IA ${iaCartela.participante.split(" ")[1]})`,
+      nome: (nomeCartela || nomeUsuario) + " (IA " + iaCartela.participante.split(" ")[1] + ")",
       palpites: novos,
-      campeao: campeaoIA,
+      campeaoId: teamMatch?.id || null,
       campeao_fase: campeaoIA ? faseAtual : undefined,
     });
   };
@@ -101,10 +182,10 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
     const ptsNovos = pontosCampeaoSeMudar;
     const diff = ptsAtuais - ptsNovos;
     if (!window.confirm(
-      `O campeão está travado porque a ${faseLabel} já começou.\n\n` +
-      `Pontos atuais: ${ptsAtuais} pts\n` +
-      `Se desbloquear e mudar: ${ptsNovos} pts (${diff > 0 ? `perda de ${diff}` : "mantém"} pts)\n\n` +
-      `Deseja desbloquear?`
+      "O campeão está travado porque a " + faseLabel + " já começou.\n\n" +
+      "Pontos atuais: " + ptsAtuais + " pts\n" +
+      "Se desbloquear e mudar: " + ptsNovos + " pts (" + (diff > 0 ? "perda de " + diff : "mantém") + " pts)\n\n" +
+      "Deseja desbloquear?"
     )) return;
     setCampeaoTravado(false);
   };
@@ -112,16 +193,16 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
   const handleSalvar = () => {
     const palpitesFiltrados = { ...(cartela?.palpites || {}) };
     for (const [jogoId, valor] of Object.entries(palpites)) {
-      const jogo = JOGOS_TODOS.find((j) => j.id === jogoId);
-      if (!jogo || !isJogoBloqueado(jogo)) {
+      const partida = partidas.find((p) => p.id === jogoId);
+      if (!partida || !isJogoBloqueado(normalizarPartida(partida))) {
         palpitesFiltrados[jogoId] = valor;
       }
     }
 
     let novaCampeaoFase = cartela?.campeao_fase;
     if (!novaCampeaoFase) {
-      novaCampeaoFase = campeao ? faseAtual : undefined;
-    } else if (campeao !== cartela?.campeao && campeaoTravado === false) {
+      novaCampeaoFase = campeaoId ? faseAtual : undefined;
+    } else if (campeaoId !== cartela?.campeao_id && !campeaoTravado) {
       novaCampeaoFase = faseAtual;
     }
 
@@ -129,46 +210,29 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
       ...cartela,
       nome: nomeCartela.trim() || "Cartela",
       palpites: palpitesFiltrados,
-      campeao,
+      campeaoId: campeaoId || null,
       campeao_fase: novaCampeaoFase,
     });
   };
 
-  const jogosPorGrupo = (grupo) => {
-    if (grupo.startsWith("Grupo")) return JOGOS_GRUPOS.filter((j) => j.grupo === grupo);
-    if (grupo === "Segunda Rodada") return JOGOS_1_16;
-    if (grupo === "Oitavas") return JOGOS_OITAVAS;
-    if (grupo === "Quartas") return JOGOS_QUARTAS;
-    if (grupo === "Semi") return JOGOS_SEMI;
-    if (grupo === "Final") return JOGOS_FINAL;
-    return [];
+  const jogosPorGrupo = (stageSlug) => {
+    const stage = stages.find(s => s.stage_slug === stageSlug);
+    if (!stage) return [];
+    return (stage.partidas || []).map(normalizarPartida);
   };
 
-  const totalJogos = (() => {
-    let t = JOGOS_GRUPOS.length;
-    if (faseAtual !== "grupos") t += JOGOS_1_16.length;
-    if (faseAtual !== "grupos") t += JOGOS_OITAVAS.length;
-    if (["quartas", "semi", "final"].includes(faseAtual)) t += JOGOS_QUARTAS.length;
-    if (["semi", "final"].includes(faseAtual)) t += JOGOS_SEMI.length;
-    if (faseAtual === "final") t += JOGOS_FINAL.length;
-    return t;
-  })();
-
+  const totalJogos = partidas.length;
   const totalPalpitados = Object.keys(palpites).filter((k) => k !== "__campeo").length;
 
-  const faseLabelParaExibir = (f) => f === "grupos" ? "Fase de Grupos"
-    : f === "1_16" ? "Segunda Rodada"
-    : f === "oitavas" ? "Oitavas"
-    : f === "quartas" ? "Quartas"
-    : f === "semi" ? "Semifinal"
-    : "Final";
+  const faseLabel = LABEL_MAP[faseAtual] || "Fase de Grupos";
 
-  const faseLabel = faseAtual === "grupos" ? "Fase de Grupos"
-    : faseAtual === "1_16" ? "Segunda Rodada"
-    : faseAtual === "oitavas" ? "Oitavas"
-    : faseAtual === "quartas" ? "Quartas"
-    : faseAtual === "semi" ? "Semifinal"
-    : "Final";
+  if (loadingDados) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0A0E1A", display: "flex", alignItems: "center", justifyContent: "center", color: "#8B9CC8" }}>
+        Carregando...
+      </div>
+    );
+  }
 
   return (
     <div className="scroll-suave" style={{ minHeight: "100vh", background: "#0A0E1A", paddingBottom: 80 }}>
@@ -217,7 +281,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
               {!isDono && <span style={{ color: "#8B9CC8", fontSize: 11, fontWeight: 400, marginLeft: 8 }}>de {cartela?.participante}</span>}
             </div>
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>
-              {isNew ? "Nova" : "Editando"} {"·"} R$ {valorAposta.toFixed(2).replace(".", ",")}
+              {isNew ? "Nova" : "Editando"} {"\u00B7"} R$ {valorAposta.toFixed(2).replace(".", ",")}
             </div>
           </div>
         </div>
@@ -288,7 +352,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
               {"\uD83C\uDFC6"} Campeão +{pontosCampeaoAtual} pts
             </span>
             <span style={{ color: "#8B9CC8", fontSize: 12, fontWeight: 400 }}>
-              ({cartela?.campeao_fase ? `${pontosCampeaoPorFase(cartela.campeao_fase)} pts na ${faseLabelParaExibir(cartela.campeao_fase)}` : faseLabel})
+              ({cartela?.campeao_fase ? pontosCampeaoPorFase(cartela.campeao_fase) + " pts na " + headingLabel(cartela.campeao_fase) : faseLabel})
             </span>
             {campeaoTravado && isDono && (
               <button
@@ -311,26 +375,26 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <select
-              value={campeao}
-              onChange={(e) => setCampeao(e.target.value)}
+              value={campeaoId}
+              onChange={(e) => setCampeaoId(e.target.value)}
               disabled={!isDono || campeaoTravado}
               style={{
                 flex: 1,
                 background: "#1a2234",
-                border: `2px solid ${campeaoTravado ? "#C8102E" : campeao ? "#FFD700" : "#1E2A45"}`,
+                border: "2px solid " + (campeaoTravado ? "#C8102E" : (campeaoId ? "#FFD700" : "#1E2A45")),
                 borderRadius: 8,
-                color: campeaoTravado ? "#C8102E" : campeao ? "#FFD700" : "#8B9CC8",
+                color: campeaoTravado ? "#C8102E" : (campeaoId ? "#FFD700" : "#8B9CC8"),
                 padding: "10px 12px",
                 fontSize: 15,
-                fontWeight: campeao ? 700 : 400,
+                fontWeight: campeaoId ? 700 : 400,
                 cursor: campeaoTravado ? "not-allowed" : "pointer",
                 opacity: campeaoTravado ? 0.6 : 1,
               }}
             >
               <option value="">Selecione o campeão...</option>
-              {TODOS_TIMES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
+              {times.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nome}
                 </option>
               ))}
             </select>
@@ -342,28 +406,30 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
           )}
         </Card>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-          <span style={{ color: "#8B9CC8", fontSize: 13, alignSelf: "center" }}>Fase:</span>
-          {fasesParaMostrar.map((g) => (
-            <button
-              key={g}
-              onClick={() => setGrupoAtivo(g)}
-              style={{
-                flexShrink: 0,
-                background: grupoAtivo === g ? "#FFD700" : "#111827",
-                color: grupoAtivo === g ? "#000" : "#8B9CC8",
-                border: `1px solid ${grupoAtivo === g ? "#FFD700" : "#1E2A45"}`,
-                borderRadius: 999,
-                padding: "6px 14px",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              {g.replace("Grupo ", "")}
-            </button>
-          ))}
-        </div>
+        {stages.length > 0 && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            <span style={{ color: "#8B9CC8", fontSize: 13, alignSelf: "center" }}>Fase:</span>
+            {fasesParaMostrar.map((slug) => (
+              <button
+                key={slug}
+                onClick={() => setGrupoAtivo(slug)}
+                style={{
+                  flexShrink: 0,
+                  background: grupoAtivo === slug ? "#FFD700" : "#111827",
+                  color: grupoAtivo === slug ? "#000" : "#8B9CC8",
+                  border: "1px solid " + (grupoAtivo === slug ? "#FFD700" : "#1E2A45"),
+                  borderRadius: 999,
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {tabLabel(slug)}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div
           style={{
@@ -374,7 +440,7 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
             letterSpacing: 1,
           }}
         >
-          {grupoAtivo.toUpperCase()}
+          {headingLabel(grupoAtivo)}
         </div>
 
         {isDono && iaCartelas.length > 0 && (
@@ -413,13 +479,13 @@ export default function PreencherCartela({ cartela, resultados, config, onSalvar
 
         {jogosPorGrupo(grupoAtivo).map((jogo) => (
           <div key={jogo.id}>
-              <JogoCard
-                jogo={jogo}
-                palpite={palpites[jogo.id]}
-                resultado={resultados?.[jogo.id]}
-                onChange={handlePalpite}
-                disabled={!isDono}
-              />
+            <JogoCard
+              jogo={jogo}
+              palpite={palpites[jogo.id]}
+              resultado={resultados?.[jogo.id]}
+              onChange={handlePalpite}
+              disabled={!isDono}
+            />
             <SugestoesIA iaCartelas={iaCartelas} jogoId={jogo.id} />
           </div>
         ))}

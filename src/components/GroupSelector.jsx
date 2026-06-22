@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabaseFetch } from "../services/supabase";
+import { listarGruposPublicos } from "../services/groups";
 import { useGrupo } from "../contexts/GrupoContext";
 
 export function GroupSelector() {
@@ -9,8 +9,7 @@ export function GroupSelector() {
   const [grupos, setGrupos] = useState([]);
 
   useEffect(() => {
-    supabaseFetch("/rest/v1/grupos?select=slug,nome")
-      .then(r => r.json())
+    listarGruposPublicos()
       .then(setGrupos)
       .catch(() => setGrupos([]));
   }, []);

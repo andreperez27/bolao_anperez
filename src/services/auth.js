@@ -1,6 +1,6 @@
-import { supabaseFetch } from "./supabase";
+import { rpc, supabaseFetch } from "./supabase";
 
-const SESSION_KEY = "bolao_session";
+const SESSION_KEY = "bolaov2_session";
 
 export function getSession() {
   try {
@@ -17,48 +17,31 @@ export function limparSession() {
   localStorage.removeItem(SESSION_KEY);
 }
 
-async function rpc(name, params) {
-  const res = await supabaseFetch("/rest/v1/rpc/" + name, {
-    method: "POST",
-    body: params ? JSON.stringify(params) : undefined,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    let msg = text;
-    try { const j = JSON.parse(text); msg = j.message || j.error || text; } catch {}
-    throw new Error(msg);
-  }
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+export async function signIn({ nome, senha }) {
+  const data = await rpc("buscar_profile", { p_nome: nome.trim(), p_senha: senha });
+  if (!data || !data.sessao_token) throw new Error("Nome ou senha incorretos");
+  const session = { profile_id: data.id, nome: data.nome, sessao_token: data.sessao_token, role_global: data.role_global || "user" };
+  salvarSession(session);
+  return session;
 }
 
-export async function signIn({ nome, senha, grupoId = "geral" }) {
-  const data = await rpc("buscar_jogador", { p_nome: nome.trim(), p_senha: senha, p_grupo_id: grupoId });
-  if (!data || !data.nome) throw new Error("Nome ou senha incorretos");
-  salvarSession({ nome: data.nome, isAdmin: false, senhaPadrao: senha === '123456' });
+export async function signUp({ nome, senha }) {
+  const data = await rpc("criar_profile", { p_nome: nome.trim(), p_senha: senha });
+  const session = { profile_id: data.id, nome: data.nome, sessao_token: data.sessao_token, role_global: "user" };
+  salvarSession(session);
+  return session;
+}
+
+export async function verificarSessao(sessaoToken) {
+  const data = await rpc("verificar_sessao", { p_sessao_token: sessaoToken });
   return data;
 }
 
-export async function signUp({ nome, senha, grupoId = "geral" }) {
-  if (senha.length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres");
-  await rpc("criar_jogador", { p_nome: nome.trim(), p_senha: senha, p_grupo_id: grupoId });
-  salvarSession({ nome: nome.trim(), isAdmin: false, senhaPadrao: senha === '123456' });
-  return { nome: nome.trim() };
+export async function signOut(sessaoToken) {
+  try { await rpc("logout_profile", { p_sessao_token: sessaoToken }); } catch {}
+  limparSession();
 }
 
-export function limparSenhaPadrao() {
-  const session = getSession();
-  if (session) {
-    session.senhaPadrao = false;
-    salvarSession(session);
-  }
-}
-
-export async function signInAdmin({ senha, grupoId = "geral" }) {
-  const res = await supabaseFetch("/rest/v1/config?select=admin_password&grupo_id=eq." + grupoId);
-  const rows = await res.json();
-  if (!rows || !rows[0] || !rows[0].admin_password) throw new Error("Admin não configurado para este grupo");
-  if (senha !== rows[0].admin_password) throw new Error("Senha de administrador incorreta");
-  salvarSession({ isAdmin: true, nome: "Admin" });
-  return { nome: "Admin" };
+export async function trocarSenha(sessaoToken, senhaAntiga, senhaNova) {
+  return await rpc("trocar_senha_profile", { p_sessao_token: sessaoToken, p_senha_antiga: senhaAntiga, p_senha_nova: senhaNova });
 }

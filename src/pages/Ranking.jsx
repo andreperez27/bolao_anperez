@@ -1,132 +1,42 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Card } from "../components/Card";
 import { Btn } from "../components/Btn";
 import { StatusBadge } from "../components/StatusBadge";
 import { PainelFinanceiro } from "../components/PainelFinanceiro";
-import { AdminPanel } from "../components/AdminPanel";
 import { LegendaDesempate } from "../components/LegendaDesempate";
 import { calcularPontos, pontosCampeaoPorFase } from "../utils/pontuacao";
-import { NOMES_IA } from "../services/ia";
 import { GroupSelector } from "../components/GroupSelector";
-import { useAuth } from "../contexts/AuthContext";
 import { useGrupo } from "../contexts/GrupoContext";
-import { atualizarAdminGrupo, getConfig } from "../services/admin";
-import { supabaseFetch } from "../services/supabase";
-
-function SuperAdminPainel({ onVoltar }) {
-  const { signOut } = useAuth();
-  const { grupo, grupoId } = useGrupo();
-  const [msg, setMsg] = React.useState("");
-  const [carregando, setCarregando] = React.useState(false);
-  const [editando, setEditando] = React.useState(false);
-  const [dados, setDados] = React.useState({ nome: "", slug: "", nome_admin: "", valor_aposta: 20, senha_admin: "" });
-  const [grupoInfo, setGrupoInfo] = React.useState(null);
-
-  React.useEffect(() => {
-    if (!grupoId) return;
-    Promise.all([
-      supabaseFetch("/rest/v1/grupos?select=nome,slug&id=eq." + encodeURIComponent(grupoId)).then(r => r.json()),
-      getConfig(grupoId),
-    ]).then(([g, cfg]) => {
-      const grp = g?.[0] || {};
-      setGrupoInfo({ nome: grp.nome, slug: grp.slug, valor_aposta: cfg.valor_aposta });
-      setDados({ nome: grp.nome || "", slug: grp.slug || "", nome_admin: "", valor_aposta: cfg.valor_aposta || 20, senha_admin: "" });
-    }).catch(() => {});
-  }, [grupoId]);
-
-  const handleSalvar = async () => {
-    setCarregando(true);
-    setMsg("");
-    try {
-      const payload = {};
-      if (dados.nome !== grupoInfo?.nome) payload.nome = dados.nome;
-      if (dados.slug !== grupoInfo?.slug) payload.slug = dados.slug;
-      if (dados.nome_admin) payload.nome_admin = dados.nome_admin;
-      if (dados.valor_aposta !== grupoInfo?.valor_aposta) payload.valor_aposta = dados.valor_aposta;
-      if (dados.senha_admin) payload.senha_admin = dados.senha_admin;
-      if (Object.keys(payload).length === 0) { setMsg("Nenhuma alteração."); setCarregando(false); return; }
-      await atualizarAdminGrupo(grupoId, payload);
-      setMsg("Grupo atualizado!" + (dados.nome_admin ? " Admin criado com senha 123456." : ""));
-      setEditando(false);
-      const [g, cfg] = await Promise.all([
-        supabaseFetch("/rest/v1/grupos?select=nome,slug&id=eq." + encodeURIComponent(grupoId)).then(r => r.json()),
-        getConfig(grupoId),
-      ]);
-      const grp = g?.[0] || {};
-      setGrupoInfo({ nome: grp.nome, slug: grp.slug, valor_aposta: cfg.valor_aposta });
-    } catch (e) {
-      setMsg("Erro: " + e.message);
-    }
-    setCarregando(false);
-  };
-
-  const inputStyle = { width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14, fontWeight: 500, boxSizing: "border-box" };
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#0A0E1A", paddingBottom: 60 }}>
-      <div style={{ background: "linear-gradient(135deg, #0033A0, #001a66)", padding: "16px 20px 14px", borderBottom: "2px solid #FFD700" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <button onClick={onVoltar} style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{"\u2190"} Voltar</button>
-          <button onClick={signOut} style={{ background: "#C8102E", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Sair</button>
-        </div>
-        <div style={{ color: "#FFD700", fontSize: 11, fontWeight: 700, letterSpacing: 2 }}>BOLÃO DA COPA 2026</div>
-        <div style={{ color: "#F0F4FF", fontSize: 20, fontWeight: 900, marginTop: 4 }}>Painel do Administrador</div>
-      </div>
-      <div style={{ padding: "14px 16px 0", maxWidth: 600, margin: "0 auto" }}>
-        {msg && <div style={{ color: msg.startsWith("Erro") ? "#C8102E" : "#10b981", fontSize: 12, marginBottom: 8 }}>{msg}</div>}
-
-        <Card>
-          {grupoInfo && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>{grupoInfo.nome}</div>
-              <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 4 }}>/{grupoInfo.slug}</div>
-              <div style={{ color: "#F0F4FF", fontSize: 14, fontWeight: 600 }}>R$ {grupoInfo.valor_aposta}</div>
-            </div>
-          )}
-          <div style={{ display: "flex", gap: 8 }}>
-            <Btn onClick={() => window.location.href = window.location.pathname.replace(/\/admin.*/, "/ranking")} cor="#0033A0" style={{ flex: 1 }}>Ver Ranking</Btn>
-            <Btn onClick={() => setEditando(!editando)} cor="#FFD700" style={{ flex: 1 }}>{editando ? "Cancelar" : "Editar Grupo"}</Btn>
-          </div>
-        </Card>
-
-        {editando && (
-          <Card>
-            <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Editar {grupoInfo?.nome || "Grupo"}</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <input placeholder="Nome do grupo" value={dados.nome} onChange={e => setDados({ ...dados, nome: e.target.value })} style={inputStyle} />
-              <input placeholder="Slug (ex: familia)" value={dados.slug} onChange={e => setDados({ ...dados, slug: e.target.value })} style={inputStyle} />
-              <input placeholder="Admin (nome do jogador)" value={dados.nome_admin} onChange={e => setDados({ ...dados, nome_admin: e.target.value })} style={inputStyle} />
-              <input type="number" placeholder="Valor aposta (R$)" value={dados.valor_aposta} onChange={e => setDados({ ...dados, valor_aposta: Number(e.target.value) })} style={inputStyle} />
-              <input type="password" placeholder="Nova senha do admin (deixe vazio para manter)" value={dados.senha_admin} onChange={e => setDados({ ...dados, senha_admin: e.target.value })} style={inputStyle} />
-              <Btn onClick={handleSalvar} disabled={carregando} style={{ width: "100%" }}>{carregando ? "Salvando..." : "Salvar"}</Btn>
-            </div>
-          </Card>
-        )}
-      </div>
-    </div>
-  );
-}
+import { listarPredictions } from "../services/predictions";
 
 export default function Ranking({
-  cartelas,
   resultados,
   campeoReal,
-  isAdmin,
   config,
-  ultimaAtualizacao,
   onVoltar,
-  onValidarCartela,
-  onResultadosChange,
   onShowInstrucoes,
   onVerTabela,
   onVerCartela,
 }) {
-  if (isAdmin) return <SuperAdminPainel onVoltar={onVoltar} />;
+  const { grupoId } = useGrupo();
+  const [predictions, setPredictions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!grupoId) return;
+    setLoading(true);
+    listarPredictions(grupoId)
+      .then((data) => {
+        setPredictions(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setPredictions([]))
+      .finally(() => setLoading(false));
+  }, [grupoId]);
 
   const medalhas = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"];
 
   const ranking = Object.values(
-    cartelas.filter((c) => !NOMES_IA.includes(c.participante)).reduce((acc, c) => {
+    predictions.reduce((acc, c) => {
       let pts = 0, total = 0, acertos = 0, placaresExatos = 0, diferencasCertas = 0, vencedoresCertos = 0, empatesPalpitados = 0;
       for (const [k, v] of Object.entries(c.palpites || {})) {
         if (k === "__campeo") continue;
@@ -140,40 +50,7 @@ export default function Ranking({
         if (tipo === "vencedor_certo") vencedoresCertos++;
         if (v?.gols_a !== undefined && v.gols_a === v.gols_b) empatesPalpitados++;
       }
-      if (campeoReal && c.campeao === campeoReal) pts += pontosCampeaoPorFase(c.campeao_fase || "grupos");
-      pts += Number(config?.bonus_geral) || 0;
-      const existente = acc[c.participante];
-      if (!existente || pts > existente.pts) {
-        acc[c.participante] = { ...c, pts, total, acertos, placaresExatos, diferencasCertas, vencedoresCertos, empatesPalpitados };
-      }
-      return acc;
-    }, {})
-  ).sort((a, b) => {
-    if (b.pts !== a.pts) return b.pts - a.pts;
-    if (b.placaresExatos !== a.placaresExatos) return b.placaresExatos - a.placaresExatos;
-    if (b.diferencasCertas !== a.diferencasCertas) return b.diferencasCertas - a.diferencasCertas;
-    if (b.vencedoresCertos !== a.vencedoresCertos) return b.vencedoresCertos - a.vencedoresCertos;
-    if (a.empatesPalpitados !== b.empatesPalpitados) return a.empatesPalpitados - b.empatesPalpitados;
-    if (b.acertos !== a.acertos) return b.acertos - a.acertos;
-    return (a.participante || "").localeCompare(b.participante || "", "pt-BR");
-  });
-
-  const iasNoRanking = Object.values(
-    cartelas.filter((c) => NOMES_IA.includes(c.participante)).reduce((acc, c) => {
-      let pts = 0, total = 0, acertos = 0, placaresExatos = 0, diferencasCertas = 0, vencedoresCertos = 0, empatesPalpitados = 0;
-      for (const [k, v] of Object.entries(c.palpites || {})) {
-        if (k === "__campeo") continue;
-        total++;
-        const r = resultados[k];
-        const { pts: pt, tipo } = calcularPontos(v, r);
-        pts += pt;
-        if (tipo !== "errou" && tipo !== "pendente") acertos++;
-        if (tipo === "placar_exato") placaresExatos++;
-        if (tipo === "diferenca_certa") diferencasCertas++;
-        if (tipo === "vencedor_certo") vencedoresCertos++;
-        if (v?.gols_a !== undefined && v.gols_a === v.gols_b) empatesPalpitados++;
-      }
-      if (campeoReal && c.campeao === campeoReal) pts += pontosCampeaoPorFase(c.campeao_fase || "grupos");
+      if (campeoReal && c.campeao_nome === campeoReal) pts += pontosCampeaoPorFase(c.campeao_fase || "grupos");
       pts += Number(config?.bonus_geral) || 0;
       const existente = acc[c.participante];
       if (!existente || pts > existente.pts) {
@@ -195,6 +72,16 @@ export default function Ranking({
   const segundo = ranking[1] || null;
   const terceiro = ranking[2] || null;
 
+  const participantesUnicos = new Set(predictions.map((c) => c.participante));
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0A0E1A", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFD700" }}>
+        Carregando ranking...
+      </div>
+    );
+  }
+
   return (
     <div className="scroll-suave" style={{ minHeight: "100vh", background: "#0A0E1A", paddingBottom: 60 }}>
       <div style={{ background: "linear-gradient(135deg, #B8860B, #FFD700)", padding: "16px 20px 14px" }}>
@@ -208,13 +95,12 @@ export default function Ranking({
           <GroupSelector />
         </div>
         <div style={{ color: "rgba(0,0,0,0.6)", fontSize: 13 }}>
-          {new Set(cartelas.filter((c) => !NOMES_IA.includes(c.participante)).map((c) => c.participante)).size} participantes, {cartelas.filter((c) => !NOMES_IA.includes(c.participante)).length} cartelas
-          {cartelas.filter((c) => NOMES_IA.includes(c.participante)).length > 0 && ` + ${new Set(cartelas.filter((c) => NOMES_IA.includes(c.participante)).map((c) => c.participante)).size} IAs`}
+          {participantesUnicos.size} participantes, {predictions.length} cartelas
         </div>
       </div>
 
       <div style={{ padding: "14px 16px 0" }}>
-        <PainelFinanceiro totalParticipantes={new Set(cartelas.filter((c) => !NOMES_IA.includes(c.participante)).map((c) => c.participante)).size} valorAposta={config?.valor_aposta || 20} />
+        <PainelFinanceiro totalParticipantes={participantesUnicos.size} valorAposta={config?.valor_aposta || 20} />
 
         {ranking.length > 0 && (
           <div style={{ background: "linear-gradient(135deg, #1a1a2e, #16213e)", border: "1px solid #1E2A45", borderRadius: 12, padding: 16, marginBottom: 14 }}>
@@ -250,12 +136,12 @@ export default function Ranking({
         <LegendaDesempate />
 
         {(() => {
-          const renderCard = (c, idx, isIA) => (
-            <div key={c.id} onClick={() => onVerCartela?.(c)} style={{ cursor: "pointer", background: isIA ? "#0d1b2a" : "#111827", border: isIA ? "1px solid #4285F466" : "1px solid #1E2A45", borderRadius: 12, padding: 16, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ color: !isIA && idx < 3 ? "#FFD700" : "#8B9CC8", fontWeight: 900, fontSize: 18, width: 32, textAlign: "center" }}>{!isIA && idx < 3 ? medalhas[idx] : `${idx + 1}º`}</div>
+          const renderCard = (c, idx) => (
+            <div key={c.id} onClick={() => onVerCartela?.(c)} style={{ cursor: "pointer", background: "#111827", border: "1px solid #1E2A45", borderRadius: 12, padding: 16, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ color: idx < 3 ? "#FFD700" : "#8B9CC8", fontWeight: 900, fontSize: 18, width: 32, textAlign: "center" }}>{idx < 3 ? medalhas[idx] : `${idx + 1}\u00BA`}</div>
               <div style={{ flex: 1 }}>
-                <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>{c.participante} {isIA && <span style={{ background: "#4285F4", color: "#fff", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, marginLeft: 4, verticalAlign: "middle" }}>IA</span>}<span style={{ color: "#8B9CC8", fontWeight: 400, fontSize: 12 }}>({c.nome || "Cartela"})</span></div>
-                <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>{c.acertos}/{c.total} acertos {c.placaresExatos > 0 && <span style={{ color: "#FFD700", fontWeight: 700 }}> · 🎯 {c.placaresExatos} exatos</span>}{c.empatesPalpitados > 0 && <span style={{ color: "#8B9CC8" }}> · ={c.empatesPalpitados} empates apostados</span>} · Campeão: {c.campeao || "—"} {c.campeao === campeoReal && campeoReal ? " ✅ +" + pontosCampeaoPorFase(c.campeao_fase || "grupos") : ""}<span style={{ marginLeft: 6 }}><StatusBadge status={c.status} /></span></div>
+                <div style={{ color: "#F0F4FF", fontWeight: 700, fontSize: 15 }}>{c.participante}<span style={{ color: "#8B9CC8", fontWeight: 400, fontSize: 12 }}> ({c.nome || "Cartela"})</span></div>
+                <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>{c.acertos}/{c.total} acertos {c.placaresExatos > 0 && <span style={{ color: "#FFD700", fontWeight: 700 }}> \u00B7 \uD83C\uDFAF {c.placaresExatos} exatos</span>}{c.empatesPalpitados > 0 && <span style={{ color: "#8B9CC8" }}> \u00B7 ={c.empatesPalpitados} empates apostados</span>} \u00B7 Campe\u00E3o: {c.campeao_nome || "\u2014"} {c.campeao_nome === campeoReal && campeoReal ? " \u2705 +" + pontosCampeaoPorFase(c.campeao_fase || "grupos") : ""}<span style={{ marginLeft: 6 }}><StatusBadge status={c.status} /></span></div>
               </div>
               <div style={{ textAlign: "right" }}><div style={{ color: "#FFD700", fontWeight: 900, fontSize: 20 }}>{c.pts}</div><div style={{ color: "#8B9CC8", fontSize: 11 }}>pts</div></div>
             </div>
@@ -263,23 +149,11 @@ export default function Ranking({
 
           return (
             <>
-              {ranking.length > 0 ? ranking.map((c, idx) => renderCard(c, idx, false)) : <div style={{ textAlign: "center", color: "#8B9CC8", padding: 40 }}>Nenhuma cartela ainda</div>}
-              {iasNoRanking.length > 0 && (
-                <><div style={{ color: "#8B9CC8", fontSize: 13, fontWeight: 700, marginBottom: 8, marginTop: 16, paddingTop: 12, borderTop: "1px solid #1E2A45" }}>{"\uD83E\uDD16"} Bancada de IAs</div>{iasNoRanking.map((c, idx) => renderCard(c, idx, true))}</>
-              )}
+              {ranking.length > 0 ? ranking.map((c, idx) => renderCard(c, idx)) : <div style={{ textAlign: "center", color: "#8B9CC8", padding: 40 }}>Nenhuma cartela ainda</div>}
             </>
           );
         })()}
 
-        <AdminPanel
-          cartelas={cartelas}
-          resultados={resultados}
-          campeoReal={campeoReal}
-          isAdmin={isAdmin}
-          ultimaAtualizacao={ultimaAtualizacao}
-          onValidarCartela={onValidarCartela}
-          onResultadosChange={onResultadosChange}
-        />
       </div>
     </div>
   );

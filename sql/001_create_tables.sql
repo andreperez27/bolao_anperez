@@ -48,6 +48,6 @@ CREATE TABLE IF NOT EXISTS admin (
 CREATE TABLE IF NOT EXISTS config (
   id INTEGER PRIMARY KEY DEFAULT 1,
   valor_aposta NUMERIC DEFAULT 20,
-  api_url TEXT DEFAULT '',
+  api_url TEXT DEFAULT 'https://worldcupjson.net/matches',
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

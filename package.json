@@ -3,11 +3,12 @@
   "private": true,
   "version": "2.0.0",
   "type": "module",
-  "description": "Bolão da Copa do Mundo 2026 — PWA com React + Vite + Supabase",
+  "description": "Bolão Anperez — Plataforma para gestão de bolões por grupo e campeonato",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "deploy": "npm run build && npx gh-pages -d dist -b gh-pages",
     "lint": "eslint src --ext .js,.jsx"
   },
   "dependencies": {
@@ -18,6 +19,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
     "eslint": "^9.0.0",
+    "gh-pages": "^6.3.0",
     "sharp": "^0.35.1",
     "vite": "^5.4.0",
     "vite-plugin-pwa": "^0.20.0"

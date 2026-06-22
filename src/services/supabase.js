@@ -1,5 +1,5 @@
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://sjleucelnptbgyjofhnz.supabase.co";
-export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_fFDUULEIatz3fzxENC6BRQ_T8rZZEmr";
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://fnqnlajohfvcvatvznkd.supabase.co";
+export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZucW5sYWpvaGZ2Y3ZhdHZ6bmtkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDUwMzQsImV4cCI6MjA5NzM4MTAzNH0.sJ8_slfNnanheMvsBtIDzV38FLrYJ9wT440-mMkYycc";
 
 export const supabaseHeaders = {
   "apikey": SUPABASE_ANON_KEY,
@@ -12,4 +12,20 @@ export function supabaseFetch(path, options = {}) {
     ...options,
     headers: { ...supabaseHeaders, ...(options.headers || {}) },
   });
+}
+
+export async function rpc(name, params) {
+  const body = params ? JSON.stringify(params) : undefined;
+  const res = await supabaseFetch("/rest/v1/rpc/" + name, {
+    method: "POST",
+    body,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = text;
+    try { const j = JSON.parse(text); msg = j.message || j.error || text; } catch {}
+    throw new Error(msg);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }

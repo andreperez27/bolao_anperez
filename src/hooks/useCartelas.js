@@ -1,23 +1,25 @@
 import { useState, useEffect, useCallback } from "react";
-import { listCartelas, salvarCartela, deletarCartela, validarCartela } from "../services/cartelas";
-import { useAuth } from "../contexts/AuthContext";
+import { listarPredictions, salvarPrediction, excluirPrediction, validarPrediction } from "../services/predictions";
+import { getSession } from "../services/auth";
 
-export function useCartelas(grupoId = "geral") {
-  const { user, jogador } = useAuth();
+export function useCartelas(grupoId) {
+  const session = getSession();
   const [cartelas, setCartelas] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    try {
-      const data = await listCartelas(grupoId);
-      setCartelas(data || []);
-    } catch {
+    if (!grupoId || !session?.profile_id) {
       setCartelas([]);
+      return;
     }
-  }, [grupoId]);
+    try {
+      const data = await listarPredictions(grupoId, session.profile_id);
+      setCartelas(Array.isArray(data) ? data : []);
+    } catch { setCartelas([]); }
+  }, [grupoId, session?.profile_id]);
 
   useEffect(() => {
-    if (!user) {
+    if (!session?.sessao_token) {
       setCartelas([]);
       setLoading(false);
       return;
@@ -25,31 +27,25 @@ export function useCartelas(grupoId = "geral") {
     let ativo = true;
     async function carregar() {
       setLoading(true);
-      try {
-        const data = await listCartelas(grupoId);
-        if (ativo) setCartelas(data || []);
-      } catch {
-        if (ativo) setCartelas([]);
-      }
+      await refresh();
       if (ativo) setLoading(false);
     }
     carregar();
     const id = setInterval(carregar, 30000);
-    return () => {
-      ativo = false;
-      clearInterval(id);
-    };
-  }, [user, grupoId]);
+    return () => { ativo = false; clearInterval(id); };
+  }, [session?.sessao_token, grupoId, refresh]);
 
   const salvar = async (cartela) => {
-    const nova = { ...cartela, grupo_id: grupoId };
-    if (!nova.id) nova.id = "cart_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
-    nova.participante = jogador?.nome || user?.nome || nova.participante;
+    const nova = {
+      ...cartela,
+      grupoId,
+      sessaoToken: session?.sessao_token,
+    };
+    if (!nova.id) nova.id = "pred_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+    nova.participante = session?.nome || nova.participante;
     if (!nova.status) nova.status = "aguardando";
-    if (!nova.created_at) nova.created_at = new Date().toISOString();
-    nova.updated_at = new Date().toISOString();
     try {
-      await salvarCartela(nova);
+      await salvarPrediction(nova);
     } catch (e) {
       alert("Erro ao salvar cartela: " + e.message);
       throw e;
@@ -58,8 +54,17 @@ export function useCartelas(grupoId = "geral") {
     return nova;
   };
 
-  const deletar = async (id) => { await deletarCartela(id); await refresh(); };
-  const validar = async (id, status) => { await validarCartela(id, status); await refresh(); };
+  const deletar = async (id) => {
+    if (!session?.sessao_token) return;
+    await excluirPrediction(id, session.sessao_token);
+    await refresh();
+  };
+
+  const validar = async (id, status) => {
+    if (!session?.sessao_token) return;
+    await validarPrediction(id, session.sessao_token, status);
+    await refresh();
+  };
 
   return { cartelas, loading, refresh, salvar, deletar, validar };
 }

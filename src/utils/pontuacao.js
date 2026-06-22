@@ -1,5 +1,3 @@
-import { JOGOS_GRUPOS, JOGOS_1_16, JOGOS_OITAVAS, JOGOS_QUARTAS, JOGOS_SEMI, JOGOS_FINAL } from "../services/jogos";
-
 export function calcularPontos(palpite, resultado) {
   if (!resultado || resultado.placar_a === null) return { pts: 0, tipo: "pendente" };
   const pa = palpite.gols_a;
@@ -14,36 +12,17 @@ export function calcularPontos(palpite, resultado) {
   return { pts: 3, tipo: "vencedor_certo" };
 }
 
-export function getFaseAtual(resultados) {
-  if (!resultados) return "grupos";
-  const todosGrupos = JOGOS_GRUPOS.every(
-    (j) => resultados[j.id]?.placar_a !== undefined && resultados[j.id]?.placar_a !== null
-  );
-  if (!todosGrupos) return "grupos";
-  const todos1_16 =
-    JOGOS_1_16 &&
-    JOGOS_1_16.every(
+export function getFaseAtual(resultados, partidas) {
+  if (!resultados || !partidas) return "grupos";
+  const slugsPorOrdem = ["grupos", "1_16", "oitavas", "quartas", "semi", "final"];
+  for (const slug of slugsPorOrdem) {
+    const daFase = partidas.filter((p) => (p.stage_slug === slug || p.grupo_letra));
+    if (!daFase.length) continue;
+    const completa = daFase.every(
       (j) => resultados[j.id]?.placar_a !== undefined && resultados[j.id]?.placar_a !== null
     );
-  if (!todos1_16) return "1_16";
-  const todosOitavas =
-    JOGOS_OITAVAS &&
-    JOGOS_OITAVAS.every(
-      (j) => resultados[j.id]?.placar_a !== undefined && resultados[j.id]?.placar_a !== null
-    );
-  if (!todosOitavas) return "oitavas";
-  const todosQuartas =
-    JOGOS_QUARTAS &&
-    JOGOS_QUARTAS.every(
-      (j) => resultados[j.id]?.placar_a !== undefined && resultados[j.id]?.placar_a !== null
-    );
-  if (!todosQuartas) return "quartas";
-  const todosSemi =
-    JOGOS_SEMI &&
-    JOGOS_SEMI.every(
-      (j) => resultados[j.id]?.placar_a !== undefined && resultados[j.id]?.placar_a !== null
-    );
-  if (!todosSemi) return "semi";
+    if (!completa) return slug;
+  }
   return "final";
 }
 

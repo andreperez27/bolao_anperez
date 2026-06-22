@@ -1,14 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabaseFetch } from "../services/supabase";
-import { getSession } from "../services/auth";
+import { getSession, trocarSenha } from "../services/auth";
 import { Card } from "../components/Card";
 import { Btn } from "../components/Btn";
-import { useGrupo } from "../contexts/GrupoContext";
 
 export default function TrocarSenha() {
   const navigate = useNavigate();
-  const { grupoId } = useGrupo();
   const [senhaAtual, setSenhaAtual] = useState("");
   const [senhaNova, setSenhaNova] = useState("");
   const [confirmSenha, setConfirmSenha] = useState("");
@@ -22,19 +19,12 @@ export default function TrocarSenha() {
     if (!senhaAtual || !senhaNova) { setErro("Preencha todos os campos"); return; }
     if (senhaNova.length < 6) { setErro("A nova senha deve ter pelo menos 6 caracteres"); return; }
     if (senhaNova !== confirmSenha) { setErro("Senhas não conferem"); return; }
-    setSubmitting(true);
-    setErro("");
+    setSubmitting(true); setErro("");
     try {
-      const res = await supabaseFetch("/rest/v1/rpc/trocar_senha", {
-        method: "POST",
-        body: JSON.stringify({ p_nome: session?.nome, p_senha_antiga: senhaAtual, p_senha_nova: senhaNova, p_grupo_id: grupoId }),
-      });
-      if (!res.ok) { const t = await res.text(); let m = t; try { const j = JSON.parse(t); m = j.message || t; } catch {} throw new Error(m); }
+      await trocarSenha(session?.sessao_token, senhaAtual, senhaNova);
       setSucesso(true);
       setTimeout(() => navigate("minhas-cartelas", { replace: true }), 1500);
-    } catch (e) {
-      setErro(e.message);
-    }
+    } catch (e) { setErro(e.message); }
     setSubmitting(false);
   };
 
@@ -54,22 +44,17 @@ export default function TrocarSenha() {
     <div style={{ minHeight: "100vh", background: "#0A0E1A", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <Card style={{ maxWidth: 380, width: "100%" }}>
         <div style={{ color: "#F0F4FF", fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Trocar Senha</div>
-        <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 16 }}>Primeiro acesso? Escolha uma nova senha segura.</div>
-
-        <input type="password" inputMode="numeric" pattern="[0-9]*" value={senhaAtual} onChange={e => { setSenhaAtual(e.target.value); setErro(""); }}
+        <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 16 }}>Escolha uma nova senha segura.</div>
+        <input type="password" value={senhaAtual} onChange={e => { setSenhaAtual(e.target.value); setErro(""); }}
           placeholder="Senha atual" onKeyDown={e => e.key === "Enter" && handleTrocar()}
           style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 14px", fontSize: 16, boxSizing: "border-box", marginBottom: 10 }} />
-
-        <input type="password" inputMode="numeric" pattern="[0-9]*" value={senhaNova} onChange={e => { setSenhaNova(e.target.value); setErro(""); }}
-          placeholder="Nova senha (6+ dígitos)" onKeyDown={e => e.key === "Enter" && handleTrocar()}
+        <input type="password" value={senhaNova} onChange={e => { setSenhaNova(e.target.value); setErro(""); }}
+          placeholder="Nova senha (6+ caracteres)" onKeyDown={e => e.key === "Enter" && handleTrocar()}
           style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 14px", fontSize: 16, boxSizing: "border-box", marginBottom: 10 }} />
-
-        <input type="password" inputMode="numeric" pattern="[0-9]*" value={confirmSenha} onChange={e => setConfirmSenha(e.target.value)}
+        <input type="password" value={confirmSenha} onChange={e => setConfirmSenha(e.target.value)}
           placeholder="Confirmar nova senha" onKeyDown={e => e.key === "Enter" && handleTrocar()}
           style={{ width: "100%", background: confirmSenha && confirmSenha !== senhaNova ? "#2a1a1a" : "#1a2234", border: `2px solid ${confirmSenha && confirmSenha !== senhaNova ? "#C8102E" : "#1E2A45"}`, borderRadius: 8, color: "#F0F4FF", padding: "10px 14px", fontSize: 16, boxSizing: "border-box", marginBottom: 14 }} />
-
         {erro && <div style={{ color: "#C8102E", fontSize: 13, marginBottom: 10, textAlign: "center" }}>{erro}</div>}
-
         <Btn onClick={handleTrocar} style={{ width: "100%" }} disabled={!senhaAtual || !senhaNova || !confirmSenha || submitting}>
           {submitting ? "Alterando..." : "Alterar Senha"}
         </Btn>

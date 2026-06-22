@@ -1,15 +1,13 @@
-import { JOGOS_GRUPOS, JOGOS_1_16, JOGOS_OITAVAS, JOGOS_QUARTAS, JOGOS_SEMI, JOGOS_FINAL } from "../services/jogos";
-
-export function baixarCartelaHTML(cartela, participante) {
+export function baixarCartelaHTML(cartela, participante, partidas) {
   if (!cartela) return;
   const palpites = cartela.palpites || {};
-  const todosJogos = [...JOGOS_GRUPOS, ...JOGOS_1_16, ...JOGOS_OITAVAS, ...JOGOS_QUARTAS, ...JOGOS_SEMI, ...JOGOS_FINAL];
-  const gruposPrint = [...new Set(todosJogos.map(j => j.grupo))];
+  const todosJogos = Array.isArray(partidas) && partidas.length ? partidas : [];
+  const gruposPrint = [...new Set(todosJogos.map(j => j.grupo_letra || j.stage_nome).filter(Boolean))];
   const agora = new Date().toLocaleString("pt-BR");
   const isoAgora = new Date().toISOString();
   const nomeArquivo = `cartela_${(cartela.nome || "bolao").replace(/[^a-z0-9]/gi, "_")}_${participante.replace(/[^a-z0-9]/gi, "_")}.html`;
 
-  let html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cartela - Bolão Copa 2026</title>
+  let html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cartela - ${cartela.editionNome || "Bolão"}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Arial, sans-serif; padding: 30px; color: #000; background: #fff; }
@@ -28,26 +26,29 @@ export function baixarCartelaHTML(cartela, participante) {
   @media print { body { padding: 15px; } .no-print { display: none; } }
 </style></head><body>
   <div class="header">
-    <h1>BOLÃO DA COPA 2026</h1>
+    <h1>${cartela.editionNome || "BOLÃO"}</h1>
     <div class="sub">${(cartela.nome || "Cartela").replace(/</g, "&lt;")} — ${participante.replace(/</g, "&lt;")}</div>
     <div class="data" data-emitido="${isoAgora}">Emitido em ${agora}</div>
-    <div class="no-print" style="margin-top:8px"><button onclick="window.print()" style="padding:6px 20px;font-size:14px;font-weight:700;cursor:pointer;background:#0033A0;color:#fff;border:none;border-radius:4px">\uD83D\uDDA8\uFE0F Imprimir</button></div>
+    <div class="no-print" style="margin-top:8px"><button onclick="window.print()" style="padding:6px 20px;font-size:14px;font-weight:700;cursor:pointer;background:#0033A0;color:#fff;border:none;border-radius:4px">🖨️ Imprimir</button></div>
   </div>`;
 
   gruposPrint.forEach(grupo => {
-    const jogos = todosJogos.filter(j => j.grupo === grupo);
+    const jogos = todosJogos.filter(j => (j.grupo_letra || j.stage_nome) === grupo);
     const temPalpite = jogos.some(j => palpites[j.id]?.gols_a !== undefined);
     if (!temPalpite) return;
     html += `<div class="grupo"><div class="grupo-titulo">${grupo.toUpperCase()}</div><table><thead><tr><th>Jogo</th><th style="text-align:center">Placar</th></tr></thead><tbody>`;
     jogos.forEach(j => {
       const p = palpites[j.id];
-      html += `<tr data-jogo-id="${j.id}"><td>${j.time_a.replace(/</g, "&lt;")} × ${j.time_b.replace(/</g, "&lt;")} <span class="horario">${j.horario_brasilia}</span></td><td class="placar">${p ? p.gols_a + "-" + p.gols_b : "—"}</td></tr>`;
+      const timeA = j.time_a_nome || j.time_a || "";
+      const timeB = j.time_b_nome || j.time_b || "";
+      const horario = j.horario ? `${j.data_iso} ${j.horario}` : "";
+      html += `<tr data-jogo-id="${j.id}"><td>${timeA.replace(/</g, "&lt;")} × ${timeB.replace(/</g, "&lt;")} <span class="horario">${horario}</span></td><td class="placar">${p ? p.gols_a + "-" + p.gols_b : "—"}</td></tr>`;
     });
     html += `</tbody></table></div>`;
   });
 
   const faseLabel = cartela.campeao_fase === "grupos" ? "Fase de Grupos" : cartela.campeao_fase === "1_16" ? "Segunda Rodada" : cartela.campeao_fase === "oitavas" ? "Oitavas" : cartela.campeao_fase === "quartas" ? "Quartas" : cartela.campeao_fase === "semi" ? "Semifinal" : "Final";
-  html += `<div class="footer"><strong>Campeão:</strong> ${(cartela.campeao || "—").replace(/</g, "&lt;")}${cartela.campeao_fase ? `<span style="color:#666;font-size:11px;margin-left:8px">(definido na ${faseLabel})</span>` : ""}</div>`;
+  html += `<div class="footer"><strong>Campeão:</strong> ${(cartela.campeao || cartela.campeao_nome || "—").replace(/</g, "&lt;")}${cartela.campeao_fase ? `<span style="color:#666;font-size:11px;margin-left:8px">(definido na ${faseLabel})</span>` : ""}</div>`;
   html += `</body></html>`;
 
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });

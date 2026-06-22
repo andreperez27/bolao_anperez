@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import App from "./App";
+import SuperAdminLayout from "./pages/SuperAdminLayout";
 import Convite from "./pages/Convite";
 import { AuthProvider } from "./contexts/AuthContext";
 import { GrupoProvider } from "./contexts/GrupoContext";
@@ -11,9 +12,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
-        <Route path="/:slug/*" element={<GrupoProvider><AuthProvider><App /></AuthProvider></GrupoProvider>} />
+        <Route path="/g/:slug/*" element={<AuthProvider><GrupoProvider><App /></GrupoProvider></AuthProvider>} />
         <Route path="/convite/:token" element={<Convite />} />
-        <Route path="*" element={<GrupoProvider><AuthProvider><App /></AuthProvider></GrupoProvider>} />
+        <Route path="/superadmin/*" element={<AuthProvider><SuperAdminLayout /></AuthProvider>} />
+        <Route path="*" element={<Navigate to="/superadmin" replace />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

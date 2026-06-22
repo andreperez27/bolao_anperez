@@ -4,11 +4,10 @@ import { Card } from "../components/Card";
 import { StatusBadge } from "../components/StatusBadge";
 import { PainelFinanceiro } from "../components/PainelFinanceiro";
 import { calcularPontosCartela } from "../utils/pontuacao";
-import { JOGOS_TODOS } from "../services/jogos";
 import { useAuth } from "../contexts/AuthContext";
+import { useGrupo } from "../contexts/GrupoContext";
 import { NOMES_IA } from "../services/ia";
 import { JogosDoDia } from "../components/JogosDoDia";
-import { GroupSelector } from "../components/GroupSelector";
 
 function ConfirmModal({ title, message, onConfirm, onCancel }) {
   return (
@@ -44,16 +43,18 @@ export default function MinhasCartelas({
   onNovaCartela,
   onVerCartela,
   onVerRanking,
+  onVerAdmin,
+  onRefreshCartelas,
   onExcluirCartela,
   onPrintCartela,
   onSair,
   onExcluirConta,
   onShowInstrucoes,
   onImportarCartela,
-  onRefreshCartelas,
   onVerTabela,
 }) {
   const { jogador, user } = useAuth();
+  const { membership } = useGrupo();
   const [confirmDelete, setConfirmDelete] = React.useState(null);
   const [confirmConta, setConfirmConta] = React.useState(false);
   const [tabAtiva, setTabAtiva] = React.useState("cartelas");
@@ -99,7 +100,6 @@ export default function MinhasCartelas({
             <div style={{ color: "#F0F4FF", fontSize: 20, fontWeight: 900 }}>
               Olá, {jogador?.nome}! {"\uD83D\uDC4B"}
             </div>
-            <div style={{ marginTop: 6 }}><GroupSelector /></div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button
@@ -145,6 +145,23 @@ export default function MinhasCartelas({
                 }}
               >
                 {"\uD83D\uDCC5"} Tabela
+              </button>
+            )}
+            {membership?.role === "admin" && (
+              <button
+                onClick={onVerAdmin}
+                style={{
+                  background: "#C8102E",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "8px 14px",
+                  fontWeight: 800,
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                {"\uD83D\uDD12"} Admin
               </button>
             )}
           </div>
@@ -319,7 +336,7 @@ export default function MinhasCartelas({
                       {c.nome || "Cartela"}
                     </div>
                     <div style={{ color: "#8B9CC8", fontSize: 12, marginTop: 2 }}>
-                      {preenchidos}/{JOGOS_TODOS.length} palpites {"·"} Campeão:{" "}
+                      {preenchidos} palpites {"·"} Campeão:{" "}
                       {c.campeao || "—"}
                     </div>
                     <div style={{ marginTop: 4 }}>
