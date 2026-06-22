@@ -3,7 +3,7 @@
   "private": true,
   "version": "2.0.0",
   "type": "module",
-  "description": "Bolão Anperez — Plataforma para gestão de bolões por grupo e campeonato",
+  "description": "Bolão Anperez — Plataforma de gestão de Bolões",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

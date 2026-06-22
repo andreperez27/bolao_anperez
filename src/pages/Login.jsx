@@ -41,7 +41,7 @@ export default function Login({ onLogin }) {
   }
 
   const titulo = edition?.edition_nome || "Bolão Anperez";
-  const subtitulo = edition?.edition_nome ? grupo?.nome || "" : "Plataforma para gestão de bolões por grupo e campeonato";
+  const subtitulo = edition?.edition_nome ? grupo?.nome || "" : "Plataforma de gestão de Bolões";
 
   return (
     <div style={{ minHeight: "100vh", background: "#0A0E1A", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>

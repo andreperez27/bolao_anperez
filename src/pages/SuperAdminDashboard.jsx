@@ -121,7 +121,7 @@ export default function SuperAdminDashboard() {
             <div>
               <div style={{ color: "#FFD700", fontSize: 11, fontWeight: 700, letterSpacing: 2 }}>BOLÃO ANPEREZ</div>
               <div style={{ color: "#F0F4FF", fontSize: 22, fontWeight: 900, marginTop: 2 }}>Painel Administrativo</div>
-              <div style={{ color: "#8B9CC8", fontSize: 13 }}>Plataforma para gestão de bolões por grupo e campeonato</div>
+              <div style={{ color: "#8B9CC8", fontSize: 13 }}>Plataforma de gestão de Bolões</div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {user && <span style={{ color: "#8B9CC8", fontSize: 13 }}>{user.nome}</span>}
