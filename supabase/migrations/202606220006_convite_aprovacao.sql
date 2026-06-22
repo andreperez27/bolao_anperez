@@ -4,6 +4,17 @@
 -- =============================================================
 
 -- =============================================================
+-- 0. Drop functions que podem ter conflito de parâmetros
+-- =============================================================
+DROP FUNCTION IF EXISTS validar_convite(TEXT);
+DROP FUNCTION IF EXISTS solicitar_entrada_com_convite(TEXT, UUID);
+DROP FUNCTION IF EXISTS aprovar_solicitacao_entrada(UUID, UUID);
+DROP FUNCTION IF EXISTS recusar_solicitacao_entrada(UUID, UUID, TEXT);
+DROP FUNCTION IF EXISTS listar_solicitacoes_pendentes(UUID, UUID);
+DROP FUNCTION IF EXISTS usar_convite_participante(TEXT, UUID);
+DROP FUNCTION IF EXISTS gerar_convite_v2(UUID, UUID, TEXT, INT, INT);
+
+-- =============================================================
 -- 1. Alterar group_invites
 -- =============================================================
 ALTER TABLE group_invites ADD COLUMN IF NOT EXISTS invite_type TEXT NOT NULL DEFAULT 'convite_aprovacao'
