@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import SuperAdminDashboard from "./SuperAdminDashboard";
 
@@ -60,6 +60,8 @@ function SuperAdminLogin() {
 export default function SuperAdminLayout() {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [redirecting, setRedirecting] = React.useState(false);
 
   if (loading) {
     return (
@@ -70,6 +72,17 @@ export default function SuperAdminLayout() {
   }
 
   if (!user) return <SuperAdminLogin />;
+
+  // após login, redirecionar para convite pendente se houver
+  React.useEffect(() => {
+    if (redirecting) return;
+    const params = new URLSearchParams(location.search);
+    const conviteToken = params.get("convite");
+    if (conviteToken) {
+      setRedirecting(true);
+      navigate("/convite/" + conviteToken, { replace: true });
+    }
+  }, [user, location.search, navigate, redirecting]);
 
   return (
     <Routes>
