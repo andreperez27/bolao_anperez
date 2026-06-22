@@ -5,7 +5,7 @@ import { StatusBadge } from "./StatusBadge";
 import { useGrupo } from "../contexts/GrupoContext";
 import { getSession } from "../services/auth";
 import { getFasesComPartidas, salvarResultado, listarTimesEdicao } from "../services/competitions";
-import { buscarConfigGrupo, atualizarConfigGrupo, listarMembros, removerMembro } from "../services/groups";
+import { buscarConfigGrupo, atualizarConfigGrupo, atualizarGrupo, listarMembros, removerMembro } from "../services/groups";
 import { listarPredictions, listarPredictionsExcluidas, validarPrediction, restaurarPrediction, excluirPredictionDefinitivo } from "../services/predictions";
 import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
 
@@ -54,13 +54,13 @@ function FormResultado({ partida, resultadoSalvo, onSalvar }) {
 const TABS = [
   { key: "validar", label: "Validar" },
   { key: "resultados", label: "Resultados" },
-  { key: "membros", label: "Membros" },
+  { key: "membros", label: "Participantes" },
   { key: "lixeira", label: "Lixeira" },
   { key: "config", label: "Config" },
 ];
 
 export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }) {
-  const { grupoId, membership, edition, config: grupoConfig } = useGrupo();
+  const { grupoId, grupo, membership, edition, config: grupoConfig } = useGrupo();
   const session = getSession();
   const sessaoToken = session?.sessao_token;
   const isAdmin = membership?.role === "admin";
@@ -118,19 +118,25 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
   if (!isAdmin) return null;
 
   // config UI state
+  const [grupoNome, setGrupoNome] = useState("");
+  const [grupoSlugEdit, setGrupoSlugEdit] = useState("");
   const [valorAposta, setValorAposta] = useState(20);
   const [bonusGeral, setBonusGeral] = useState(0);
   const [apiUrl, setApiUrl] = useState("");
   const [adminSenha, setAdminSenha] = useState("");
 
   useEffect(() => {
+    if (grupo) {
+      setGrupoNome(grupo.nome || "");
+      setGrupoSlugEdit(grupo.slug || "");
+    }
     if (config) {
       setValorAposta(config.valor_aposta ?? 20);
       setBonusGeral(config.bonus_geral ?? 0);
       setApiUrl(config.api_url ?? "");
       setAdminSenha(config.admin_senha ?? "");
     }
-  }, [config]);
+  }, [config, grupo]);
 
   // resultados UI state
   const [resultadosEdit, setResultadosEdit] = useState(resultados || {});
@@ -200,6 +206,13 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
 
   const handleSalvarConfig = useCallback(async () => {
     try {
+      if (grupo && (grupoNome !== grupo.nome || grupoSlugEdit !== grupo.slug)) {
+        await atualizarGrupo({
+          grupoId, sessaoToken,
+          nome: grupoNome !== grupo.nome ? grupoNome : null,
+          slug: grupoSlugEdit !== grupo.slug ? grupoSlugEdit : null,
+        });
+      }
       await atualizarConfigGrupo({
         grupoId, sessaoToken,
         valorAposta: Number(valorAposta),
@@ -211,7 +224,7 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
     } catch (e) {
       alert("Erro: " + (e.message || "desconhecido"));
     }
-  }, [grupoId, sessaoToken, valorAposta, bonusGeral, apiUrl, adminSenha]);
+  }, [grupoId, grupo, grupoNome, grupoSlugEdit, sessaoToken, valorAposta, bonusGeral, apiUrl, adminSenha]);
 
   const handleValidar = useCallback(async (id, status) => {
     try { await validarPrediction(id, sessaoToken, status); loadAll(); } catch (e) { alert("Erro: " + e.message); }
@@ -438,6 +451,16 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
       {aba === "config" && (
         <Card style={{ border: "2px solid #0033A044" }}>
           <div style={{ color: "#1a4fd6", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>Configurações do Grupo</div>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Nome do Grupo</div>
+            <input value={grupoNome} onChange={e => setGrupoNome(e.target.value)}
+              style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14, fontWeight: 500 }} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Slug (link do grupo)</div>
+            <input value={grupoSlugEdit} onChange={e => setGrupoSlugEdit(e.target.value)}
+              style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14, fontWeight: 500 }} />
+          </div>
           <div style={{ marginBottom: 14 }}>
             <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Valor da Aposta (R$)</div>
             <input type="number" step="0.50" min="0" value={valorAposta} onChange={e => setValorAposta(e.target.value)}
