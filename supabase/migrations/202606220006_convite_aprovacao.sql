@@ -1,7 +1,46 @@
 -- =============================================================
--- RPCs — CONVITES E SOLICITAÇÕES
+-- CONVITE COM APROVAÇÃO
+-- Suporta convite_auto (entrada direta) e convite_aprovacao (solicitação)
 -- =============================================================
 
+-- =============================================================
+-- 1. Alterar group_invites
+-- =============================================================
+ALTER TABLE group_invites ADD COLUMN IF NOT EXISTS invite_type TEXT NOT NULL DEFAULT 'convite_aprovacao'
+  CHECK (invite_type IN ('convite_auto', 'convite_aprovacao'));
+
+ALTER TABLE group_invites ADD COLUMN IF NOT EXISTS uses_count INT NOT NULL DEFAULT 0;
+ALTER TABLE group_invites ADD COLUMN IF NOT EXISTS token_hash TEXT;
+
+-- migrar dados existentes: usos → uses_count
+UPDATE group_invites SET uses_count = COALESCE(usos, 0) WHERE uses_count = 0 AND usos IS NOT NULL;
+
+-- =============================================================
+-- 2. group_join_requests
+-- =============================================================
+CREATE TABLE IF NOT EXISTS group_join_requests (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  grupo_id      UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  invite_id     UUID REFERENCES group_invites(id),
+  profile_id    UUID NOT NULL REFERENCES profiles(id),
+  nome          TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'pending'
+                CHECK (status IN ('pending', 'approved', 'rejected', 'blocked', 'cancelled')),
+  requested_at  TIMESTAMPTZ DEFAULT NOW(),
+  approved_by   UUID REFERENCES profiles(id),
+  approved_at   TIMESTAMPTZ,
+  rejected_by   UUID REFERENCES profiles(id),
+  rejected_at   TIMESTAMPTZ,
+  notes         TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_join_req_grupo ON group_join_requests (grupo_id);
+CREATE INDEX IF NOT EXISTS idx_join_req_profile ON group_join_requests (profile_id);
+CREATE INDEX IF NOT EXISTS idx_join_req_status ON group_join_requests (grupo_id, status);
+
+-- =============================================================
+-- 3. RPC: gerar_convite_v2 (com tipo)
+-- =============================================================
 CREATE OR REPLACE FUNCTION gerar_convite_v2(
   p_grupo_id UUID, p_sessao_token UUID,
   p_invite_type TEXT DEFAULT 'convite_aprovacao',
@@ -26,6 +65,9 @@ BEGIN
 END;
 $$;
 
+-- =============================================================
+-- 4. RPC: validar_convite
+-- =============================================================
 CREATE OR REPLACE FUNCTION validar_convite(p_token TEXT)
 RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER SET search_path = 'public' AS $$
 DECLARE v_invite RECORD; v_grupo_nome TEXT; v_grupo_slug TEXT;
@@ -58,6 +100,9 @@ BEGIN
 END;
 $$;
 
+-- =============================================================
+-- 5. RPC: solicitar_entrada_com_convite
+-- =============================================================
 CREATE OR REPLACE FUNCTION solicitar_entrada_com_convite(
   p_token TEXT, p_sessao_token UUID
 )
@@ -69,6 +114,7 @@ BEGIN
   SELECT id, nome INTO v_profile_id, v_profile_nome FROM profiles WHERE sessao_token = p_sessao_token;
   IF NOT FOUND THEN RAISE EXCEPTION 'Sessão inválida. É necessário estar logado.'; END IF;
 
+  -- validar convite
   SELECT gi.*, g.nome AS grupo_nome, g.slug AS grupo_slug
   INTO v_invite
   FROM group_invites gi
@@ -83,13 +129,16 @@ BEGIN
     UPDATE group_invites SET ativo = FALSE WHERE id = v_invite.id;
     RAISE EXCEPTION 'Este convite já atingiu o limite de usos'; END IF;
 
+  -- já é membro?
   SELECT id INTO v_existing FROM group_members WHERE grupo_id = v_invite.grupo_id AND profile_id = v_profile_id;
   IF FOUND THEN RAISE EXCEPTION 'Você já faz parte deste grupo'; END IF;
 
+  -- já tem solicitação pendente?
   SELECT id INTO v_pending_id FROM group_join_requests
     WHERE grupo_id = v_invite.grupo_id AND profile_id = v_profile_id AND status = 'pending';
   IF FOUND THEN RAISE EXCEPTION 'Você já possui uma solicitação pendente para este grupo'; END IF;
 
+  -- convite_auto: entra direto
   IF v_invite.invite_type = 'convite_auto' THEN
     INSERT INTO group_members (grupo_id, profile_id, role)
     VALUES (v_invite.grupo_id, v_profile_id, 'participante')
@@ -98,6 +147,7 @@ BEGIN
     RETURN json_build_object('ok', true, 'entrada_direta', true, 'grupo_id', v_invite.grupo_id, 'grupo_nome', v_invite.grupo_nome, 'grupo_slug', v_invite.grupo_slug);
   END IF;
 
+  -- convite_aprovacao: criar solicitação
   INSERT INTO group_join_requests (grupo_id, invite_id, profile_id, nome, status)
   VALUES (v_invite.grupo_id, v_invite.id, v_profile_id, v_profile_nome, 'pending')
   RETURNING id INTO v_pending_id;
@@ -109,6 +159,9 @@ BEGIN
 END;
 $$;
 
+-- =============================================================
+-- 6. RPC: aprovar_solicitacao_entrada
+-- =============================================================
 CREATE OR REPLACE FUNCTION aprovar_solicitacao_entrada(
   p_request_id UUID, p_sessao_token UUID
 )
@@ -139,6 +192,9 @@ BEGIN
 END;
 $$;
 
+-- =============================================================
+-- 7. RPC: recusar_solicitacao_entrada
+-- =============================================================
 CREATE OR REPLACE FUNCTION recusar_solicitacao_entrada(
   p_request_id UUID, p_sessao_token UUID, p_notes TEXT DEFAULT NULL
 )
@@ -165,6 +221,9 @@ BEGIN
 END;
 $$;
 
+-- =============================================================
+-- 8. RPC: listar_solicitacoes_pendentes
+-- =============================================================
 CREATE OR REPLACE FUNCTION listar_solicitacoes_pendentes(p_grupo_id UUID, p_sessao_token UUID)
 RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER SET search_path = 'public' AS $$
 DECLARE v_admin_id UUID; v_role TEXT; v_result JSON;
@@ -190,7 +249,9 @@ BEGIN
 END;
 $$;
 
--- compatibilidade
+-- =============================================================
+-- 9. Atualizar usar_convite_participante (compatibilidade)
+-- =============================================================
 CREATE OR REPLACE FUNCTION usar_convite_participante(p_token TEXT, p_sessao_token UUID)
 RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER SET search_path = 'public' AS $$
 BEGIN

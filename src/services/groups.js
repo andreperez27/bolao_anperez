@@ -62,12 +62,33 @@ export async function atualizarGrupo({ grupoId, sessaoToken, nome, slug }) {
   });
 }
 
-export async function gerarConviteParticipante(grupoId, sessaoToken, validadeDias = 7, maxUsos = 0) {
-  return await rpc("gerar_convite_participante", { p_grupo_id: grupoId, p_sessao_token: sessaoToken, p_validade_dias: validadeDias, p_max_usos: maxUsos });
+export async function gerarConviteParticipante(grupoId, sessaoToken, validadeDias = 30, maxUsos = 0, inviteType = "convite_aprovacao") {
+  return await rpc("gerar_convite_v2", { p_grupo_id: grupoId, p_sessao_token: sessaoToken, p_validade_dias: validadeDias, p_max_usos: maxUsos, p_invite_type: inviteType });
 }
 
+export async function validarConvite(token) {
+  return await rpc("validar_convite", { p_token: token });
+}
+
+export async function solicitarEntradaComConvite(token, sessaoToken) {
+  return await rpc("solicitar_entrada_com_convite", { p_token: token, p_sessao_token: sessaoToken });
+}
+
+export async function aprovarSolicitacao(requestId, sessaoToken) {
+  return await rpc("aprovar_solicitacao_entrada", { p_request_id: requestId, p_sessao_token: sessaoToken });
+}
+
+export async function recusarSolicitacao(requestId, sessaoToken, notes) {
+  return await rpc("recusar_solicitacao_entrada", { p_request_id: requestId, p_sessao_token: sessaoToken, p_notes: notes || null });
+}
+
+export async function listarSolicitacoes(grupoId, sessaoToken) {
+  return await rpc("listar_solicitacoes_pendentes", { p_grupo_id: grupoId, p_sessao_token: sessaoToken });
+}
+
+// mantido para compatibilidade
 export async function usarConviteParticipante(token, sessaoToken) {
-  return await rpc("usar_convite_participante", { p_token: token, p_sessao_token: sessaoToken });
+  return await rpc("solicitar_entrada_com_convite", { p_token: token, p_sessao_token: sessaoToken });
 }
 
 export async function atualizarConfigGrupo({ grupoId, sessaoToken, valorAposta, apiUrl, bonusGeral, regras, campeaoRealId, viceCampeaoRealId, artilheiroRealNome, artilheiroRealSelecao, adminSenha }) {

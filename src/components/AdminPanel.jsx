@@ -5,7 +5,7 @@ import { StatusBadge } from "./StatusBadge";
 import { useGrupo } from "../contexts/GrupoContext";
 import { getSession } from "../services/auth";
 import { getFasesComPartidas, salvarResultado, listarTimesEdicao } from "../services/competitions";
-import { buscarConfigGrupo, atualizarConfigGrupo, listarMembros, removerMembro, gerarConviteParticipante } from "../services/groups";
+import { buscarConfigGrupo, atualizarConfigGrupo, listarMembros, removerMembro, gerarConviteParticipante, listarSolicitacoes, aprovarSolicitacao, recusarSolicitacao } from "../services/groups";
 import { listarPredictions, listarPredictionsExcluidas, validarPrediction, restaurarPrediction, excluirPredictionDefinitivo } from "../services/predictions";
 import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
 
@@ -214,19 +214,42 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
     try { await validarPrediction(id, sessaoToken, status); loadAll(); } catch (e) { alert("Erro: " + e.message); }
   }, [sessaoToken, loadAll]);
 
+  const [inviteType, setInviteType] = useState("convite_aprovacao");
   const [inviteLink, setInviteLink] = useState("");
   const [gerandoInvite, setGerandoInvite] = useState(false);
+  const [solicitacoes, setSolicitacoes] = useState([]);
+  const [processandoReq, setProcessandoReq] = useState(null);
 
   const handleGerarConvite = useCallback(async () => {
     if (!grupoId || !sessaoToken) return;
     setGerandoInvite(true);
     try {
-      const data = await gerarConviteParticipante(grupoId, sessaoToken, 30, 0);
+      const data = await gerarConviteParticipante(grupoId, sessaoToken, 30, 0, inviteType);
       const base = import.meta.env.BASE_URL || "/";
       setInviteLink(window.location.origin + base + "convite/" + data.token);
     } catch (e) { alert("Erro: " + e.message); }
     setGerandoInvite(false);
+  }, [grupoId, sessaoToken, inviteType]);
+
+  const carregarSolicitacoes = useCallback(async () => {
+    if (!grupoId || !sessaoToken) return;
+    try {
+      const data = await listarSolicitacoes(grupoId, sessaoToken);
+      setSolicitacoes(Array.isArray(data) ? data : []);
+    } catch { setSolicitacoes([]); }
   }, [grupoId, sessaoToken]);
+
+  const handleAprovarSolicitacao = useCallback(async (reqId) => {
+    setProcessandoReq(reqId);
+    try { await aprovarSolicitacao(reqId, sessaoToken); carregarSolicitacoes(); loadAll(); } catch (e) { alert("Erro: " + e.message); }
+    setProcessandoReq(null);
+  }, [sessaoToken, carregarSolicitacoes, loadAll]);
+
+  const handleRecusarSolicitacao = useCallback(async (reqId) => {
+    setProcessandoReq(reqId);
+    try { await recusarSolicitacao(reqId, sessaoToken); carregarSolicitacoes(); } catch (e) { alert("Erro: " + e.message); }
+    setProcessandoReq(null);
+  }, [sessaoToken, carregarSolicitacoes]);
 
   const handleRemoverMembro = useCallback(async (profileId, nome) => {
     if (!window.confirm(`Remover ${nome} do grupo?`)) return;
@@ -261,7 +284,7 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
     <div style={{ marginTop: 20 }}>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
         {TABS.map(tab => (
-          <button key={tab.key} onClick={() => { setAba(tab.key); if (tab.key === "lixeira") carregarExcluidas(); }}
+          <button key={tab.key} onClick={() => { setAba(tab.key); if (tab.key === "lixeira") carregarExcluidas(); if (tab.key === "membros") carregarSolicitacoes(); }}
             style={{ flex: 1, minWidth: 60, padding: "10px", background: aba === tab.key ? "#C8102E" : "#111827", color: aba === tab.key ? "#fff" : "#8B9CC8", border: "1px solid " + (aba === tab.key ? "#C8102E" : "#1E2A45"), borderRadius: 8, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
             {tab.label}
           </button>
@@ -384,6 +407,13 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
 
           <div style={{ marginBottom: 14, padding: 12, background: "#0d1b2a", borderRadius: 8 }}>
             <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 8 }}>Link de convite para novos participantes:</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <select value={inviteType} onChange={e => setInviteType(e.target.value)}
+                style={{ background: "#1a2234", border: "1px solid #1E2A45", borderRadius: 6, color: "#F0F4FF", padding: "8px 10px", fontSize: 12, cursor: "pointer" }}>
+                <option value="convite_aprovacao">Com aprovação (WhatsApp)</option>
+                <option value="convite_auto">Auto (entrada direta)</option>
+              </select>
+            </div>
             <div style={{ display: "flex", gap: 8 }}>
               <input readOnly value={inviteLink} placeholder="Clique em Gerar para criar o link"
                 style={{ flex: 1, background: "#1a2234", border: "1px solid #1E2A45", borderRadius: 6, color: "#FFD700", padding: "8px 10px", fontSize: 12, fontWeight: 600 }} />
@@ -396,6 +426,39 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
                 style={{ marginTop: 8, background: "transparent", border: "1px solid #0033A0", borderRadius: 6, color: "#0033A0", padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer", width: "100%" }}>
                 Copiar link
               </button>
+            )}
+          </div>
+
+          {/* SOLICITAÇÕES PENDENTES */}
+          <div style={{ marginBottom: 14, padding: 12, background: "#0d1b2a", borderRadius: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ color: "#FFD700", fontWeight: 700, fontSize: 12 }}>Solicitações pendentes</div>
+              <button onClick={carregarSolicitacoes} style={{ background: "transparent", border: "1px solid #1E2A45", borderRadius: 4, color: "#8B9CC8", padding: "2px 8px", fontSize: 10, cursor: "pointer" }}>
+                Atualizar
+              </button>
+            </div>
+            {solicitacoes.filter(s => s.status === "pending").length === 0 ? (
+              <div style={{ color: "#4B5563", fontSize: 11, textAlign: "center", padding: 8 }}>Nenhuma solicitação pendente.</div>
+            ) : (
+              solicitacoes.filter(s => s.status === "pending").map(s => (
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(30,42,69,0.25)" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#FFD700", display: "flex", alignItems: "center", justifyContent: "center", color: "#000", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
+                    {(s.nome || "?")[0].toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: "#F0F4FF", fontWeight: 600, fontSize: 13 }}>{s.nome}</div>
+                    <div style={{ color: "#6B7280", fontSize: 10 }}>{s.requested_at ? new Date(s.requested_at).toLocaleString("pt-BR") : ""}</div>
+                  </div>
+                  <button onClick={() => handleAprovarSolicitacao(s.id)} disabled={processandoReq === s.id}
+                    style={{ background: "#16a34a", border: "none", borderRadius: 6, color: "#fff", padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: processandoReq === s.id ? "not-allowed" : "pointer", opacity: processandoReq === s.id ? 0.6 : 1 }}>
+                    Aprovar
+                  </button>
+                  <button onClick={() => handleRecusarSolicitacao(s.id)} disabled={processandoReq === s.id}
+                    style={{ background: "#C8102E", border: "none", borderRadius: 6, color: "#fff", padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: processandoReq === s.id ? "not-allowed" : "pointer", opacity: processandoReq === s.id ? 0.6 : 1 }}>
+                    Recusar
+                  </button>
+                </div>
+              ))
             )}
           </div>
 
