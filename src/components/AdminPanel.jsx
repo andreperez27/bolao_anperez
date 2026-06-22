@@ -5,7 +5,7 @@ import { StatusBadge } from "./StatusBadge";
 import { useGrupo } from "../contexts/GrupoContext";
 import { getSession } from "../services/auth";
 import { getFasesComPartidas, salvarResultado, listarTimesEdicao } from "../services/competitions";
-import { buscarConfigGrupo, atualizarConfigGrupo, atualizarGrupo, listarMembros, removerMembro } from "../services/groups";
+import { buscarConfigGrupo, atualizarConfigGrupo, listarMembros, removerMembro, gerarConviteParticipante } from "../services/groups";
 import { listarPredictions, listarPredictionsExcluidas, validarPrediction, restaurarPrediction, excluirPredictionDefinitivo } from "../services/predictions";
 import { parseResultadosDeAPI, fetchResultadosDeURL } from "../utils/parseResultadosAPI";
 
@@ -60,7 +60,7 @@ const TABS = [
 ];
 
 export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }) {
-  const { grupoId, grupo, membership, edition, config: grupoConfig } = useGrupo();
+  const { grupoId, membership, edition, config: grupoConfig } = useGrupo();
   const session = getSession();
   const sessaoToken = session?.sessao_token;
   const isAdmin = membership?.role === "admin";
@@ -118,25 +118,17 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
   if (!isAdmin) return null;
 
   // config UI state
-  const [grupoNome, setGrupoNome] = useState("");
-  const [grupoSlugEdit, setGrupoSlugEdit] = useState("");
   const [valorAposta, setValorAposta] = useState(20);
-  const [bonusGeral, setBonusGeral] = useState(0);
   const [apiUrl, setApiUrl] = useState("");
   const [adminSenha, setAdminSenha] = useState("");
 
   useEffect(() => {
-    if (grupo) {
-      setGrupoNome(grupo.nome || "");
-      setGrupoSlugEdit(grupo.slug || "");
-    }
     if (config) {
       setValorAposta(config.valor_aposta ?? 20);
-      setBonusGeral(config.bonus_geral ?? 0);
       setApiUrl(config.api_url ?? "");
       setAdminSenha(config.admin_senha ?? "");
     }
-  }, [config, grupo]);
+  }, [config]);
 
   // resultados UI state
   const [resultadosEdit, setResultadosEdit] = useState(resultados || {});
@@ -206,17 +198,9 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
 
   const handleSalvarConfig = useCallback(async () => {
     try {
-      if (grupo && (grupoNome !== grupo.nome || grupoSlugEdit !== grupo.slug)) {
-        await atualizarGrupo({
-          grupoId, sessaoToken,
-          nome: grupoNome !== grupo.nome ? grupoNome : null,
-          slug: grupoSlugEdit !== grupo.slug ? grupoSlugEdit : null,
-        });
-      }
       await atualizarConfigGrupo({
         grupoId, sessaoToken,
         valorAposta: Number(valorAposta),
-        bonusGeral: Number(bonusGeral),
         apiUrl: apiUrl || null,
         adminSenha: adminSenha || null,
       });
@@ -224,11 +208,25 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
     } catch (e) {
       alert("Erro: " + (e.message || "desconhecido"));
     }
-  }, [grupoId, grupo, grupoNome, grupoSlugEdit, sessaoToken, valorAposta, bonusGeral, apiUrl, adminSenha]);
+  }, [grupoId, sessaoToken, valorAposta, apiUrl, adminSenha]);
 
   const handleValidar = useCallback(async (id, status) => {
     try { await validarPrediction(id, sessaoToken, status); loadAll(); } catch (e) { alert("Erro: " + e.message); }
   }, [sessaoToken, loadAll]);
+
+  const [inviteLink, setInviteLink] = useState("");
+  const [gerandoInvite, setGerandoInvite] = useState(false);
+
+  const handleGerarConvite = useCallback(async () => {
+    if (!grupoId || !sessaoToken) return;
+    setGerandoInvite(true);
+    try {
+      const data = await gerarConviteParticipante(grupoId, sessaoToken, 30, 0);
+      const base = import.meta.env.BASE_URL || "/";
+      setInviteLink(window.location.origin + base + "convite/" + data.token);
+    } catch (e) { alert("Erro: " + e.message); }
+    setGerandoInvite(false);
+  }, [grupoId, sessaoToken]);
 
   const handleRemoverMembro = useCallback(async (profileId, nome) => {
     if (!window.confirm(`Remover ${nome} do grupo?`)) return;
@@ -382,7 +380,25 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
       {/* MEMBROS */}
       {aba === "membros" && (
         <Card style={{ border: "2px solid #FFD70044" }}>
-          <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>Membros do Grupo</div>
+          <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>Participantes</div>
+
+          <div style={{ marginBottom: 14, padding: 12, background: "#0d1b2a", borderRadius: 8 }}>
+            <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 8 }}>Link de convite para novos participantes:</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input readOnly value={inviteLink} placeholder="Clique em Gerar para criar o link"
+                style={{ flex: 1, background: "#1a2234", border: "1px solid #1E2A45", borderRadius: 6, color: "#FFD700", padding: "8px 10px", fontSize: 12, fontWeight: 600 }} />
+              <Btn onClick={handleGerarConvite} cor="#0033A0" disabled={gerandoInvite} style={{ padding: "8px 14px", fontSize: 12, whiteSpace: "nowrap" }}>
+                {gerandoInvite ? "\u23F3" : "Gerar"}
+              </Btn>
+            </div>
+            {inviteLink && (
+              <button onClick={() => { navigator.clipboard.writeText(inviteLink); alert("Link copiado!"); }}
+                style={{ marginTop: 8, background: "transparent", border: "1px solid #0033A0", borderRadius: 6, color: "#0033A0", padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer", width: "100%" }}>
+                Copiar link
+              </button>
+            )}
+          </div>
+
           {membros.length === 0 ? (
             <div style={{ color: "#8B9CC8", fontSize: 13, textAlign: "center", padding: 12 }}>Nenhum membro.</div>
           ) : (
@@ -450,17 +466,7 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
       {/* CONFIG */}
       {aba === "config" && (
         <Card style={{ border: "2px solid #0033A044" }}>
-          <div style={{ color: "#1a4fd6", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>Configurações do Grupo</div>
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Nome do Grupo</div>
-            <input value={grupoNome} onChange={e => setGrupoNome(e.target.value)}
-              style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14, fontWeight: 500 }} />
-          </div>
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Slug (link do grupo)</div>
-            <input value={grupoSlugEdit} onChange={e => setGrupoSlugEdit(e.target.value)}
-              style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14, fontWeight: 500 }} />
-          </div>
+          <div style={{ color: "#1a4fd6", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>Configurações</div>
           <div style={{ marginBottom: 14 }}>
             <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Valor da Aposta (R$)</div>
             <input type="number" step="0.50" min="0" value={valorAposta} onChange={e => setValorAposta(e.target.value)}
@@ -472,13 +478,8 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
               style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14 }} />
           </div>
           <div style={{ marginBottom: 14 }}>
-            <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Pontos extras (bônus geral)</div>
-            <input type="number" min="0" value={bonusGeral} onChange={e => setBonusGeral(e.target.value)} placeholder="0"
-              style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#16a34a", padding: "10px 12px", fontSize: 18, fontWeight: 700 }} />
-          </div>
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Senha do Administrador</div>
-            <input type="text" value={adminSenha} onChange={e => setAdminSenha(e.target.value)} placeholder="Senha para acesso do admin"
+            <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 6 }}>Nova senha do admin (deixe vazio para manter)</div>
+            <input type="text" value={adminSenha} onChange={e => setAdminSenha(e.target.value)} placeholder="Nova senha do admin (deixe vazio para manter)"
               style={{ width: "100%", background: "#1a2234", border: "2px solid #1E2A45", borderRadius: 8, color: "#F0F4FF", padding: "10px 12px", fontSize: 14 }} />
           </div>
           <Btn onClick={handleSalvarConfig} cor="#0033A0" style={{ width: "100%" }}>Salvar Configuração</Btn>
