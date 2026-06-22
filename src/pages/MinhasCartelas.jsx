@@ -95,7 +95,7 @@ export default function MinhasCartelas({
                 marginBottom: 2,
               }}
             >
-              BOLÃO DA COPA 2026
+              BOLÃO ANPEREZ
             </div>
             <div style={{ color: "#F0F4FF", fontSize: 20, fontWeight: 900 }}>
               Olá, {jogador?.nome}! {"\uD83D\uDC4B"}
