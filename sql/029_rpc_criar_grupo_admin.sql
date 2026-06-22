@@ -10,7 +10,7 @@ DECLARE
 BEGIN
   SELECT id INTO v_profile_id FROM profiles WHERE sessao_token = p_criador_sessao;
   IF NOT FOUND THEN RAISE EXCEPTION 'Sessão inválida'; END IF;
-  IF EXISTS (SELECT 1 FROM groups WHERE slug = p_slug) THEN
+  IF EXISTS (SELECT 1 FROM groups WHERE slug = p_slug AND ativo = TRUE) THEN
     RAISE EXCEPTION 'Este slug já está em uso';
   END IF;
   SELECT id INTO v_admin_id FROM profiles WHERE nome = p_admin_nome;
