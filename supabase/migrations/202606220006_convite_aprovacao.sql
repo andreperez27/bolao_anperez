@@ -13,6 +13,8 @@ DROP FUNCTION IF EXISTS recusar_solicitacao_entrada(UUID, UUID, TEXT);
 DROP FUNCTION IF EXISTS listar_solicitacoes_pendentes(UUID, UUID);
 DROP FUNCTION IF EXISTS usar_convite_participante(TEXT, UUID);
 DROP FUNCTION IF EXISTS gerar_convite_v2(UUID, UUID, TEXT, INT, INT);
+DROP FUNCTION IF EXISTS gerar_convite_participante(UUID, UUID, INT, INT);
+DROP FUNCTION IF EXISTS usar_admin_invite(UUID, TEXT, UUID);
 
 -- =============================================================
 -- 1. Alterar group_invites
