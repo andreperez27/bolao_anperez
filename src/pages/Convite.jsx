@@ -16,9 +16,14 @@ const ESTADOS = {
 };
 
 export default function Convite() {
-  const { token } = useParams();
+  const { token: urlToken } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const session = getSession();
+  const [session, setSession] = useState(() => getSession());
+
+  const token = urlToken || new URLSearchParams(location.search).get('token');
+  
+  console.log("Convite mount:", { urlToken, searchToken: new URLSearchParams(location.search).get('token'), finalToken: token, location });
 
   const [estado, setEstado] = useState(ESTADOS.VALIDANDO);
   const [grupoNome, setGrupoNome] = useState("");
@@ -29,7 +34,8 @@ export default function Convite() {
 
   const validar = useCallback(async (tok) => {
     if (!tok) { setEstado(ESTADOS.INVALIDO); setMsg("Link inválido"); return; }
-    if (!session?.sessao_token) {
+    const currentSession = getSession();
+    if (!currentSession?.sessao_token) {
       navigate("/superadmin?convite=" + tok, { replace: true });
       return;
     }
@@ -57,15 +63,21 @@ export default function Convite() {
       setEstado(ESTADOS.ERRO);
       setMsg(e.message || "Erro ao validar convite");
     }
-  }, [session, navigate]);
+  }, [navigate]);
 
   useEffect(() => { validar(token); }, [token, validar]);
 
   const handleSolicitar = async () => {
-    if (!token || !session?.sessao_token) return;
+    if (!token) return;
+    const currentSession = getSession();
+    if (!currentSession?.sessao_token) {
+      navigate("/superadmin?convite=" + token, { replace: true });
+      return;
+    }
     setSubmitting(true);
     try {
-      const data = await solicitarEntradaComConvite(token, session.sessao_token);
+      const data = await solicitarEntradaComConvite(token, currentSession.sessao_token);
+      console.log("Solicitação resposta:", data);
       if (data?.entrada_direta) {
         alert("Bem-vindo ao grupo!");
         navigate(`/g/${data.grupo_slug}/minhas-cartelas`, { replace: true });
@@ -74,6 +86,7 @@ export default function Convite() {
       setEstado(ESTADOS.SOLICITADO);
       setMsg("Solicitação enviada com sucesso!");
     } catch (e) {
+      console.error("Erro solicitar:", e);
       const errMsg = e.message || "";
       if (errMsg.includes("já faz parte")) {
         setEstado(ESTADOS.MEMBRO);
@@ -83,7 +96,7 @@ export default function Convite() {
         setMsg(errMsg);
       } else {
         setEstado(ESTADOS.ERRO);
-        setMsg(errMsg);
+        setMsg(errMsg || "Erro ao solicitar entrada. Tente novamente.");
       }
     }
     setSubmitting(false);

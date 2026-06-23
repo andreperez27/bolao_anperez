@@ -19,6 +19,17 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const path = params.get('path');
+    if (path) {
+      params.delete('path');
+      const newSearch = params.toString();
+      const newUrl = path + (newSearch ? '?' + newSearch : '');
+      history.replaceState(null, '', newUrl);
+    }
+  }, [location]);
   const { grupoId, grupo, edition, config, membership, grupoSlug, navigateTo, loading: grupoLoading, error: grupoError } = useGrupo();
   const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas(grupoId);
   const { resultados, campeoReal, updateResultados, loadData, ultimaAtualizacao } = useRanking(grupoId);
