@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Card } from "./Card";
 import { Btn } from "./Btn";
 import { StatusBadge } from "./StatusBadge";
@@ -214,22 +214,12 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
     try { await validarPrediction(id, sessaoToken, status); loadAll(); } catch (e) { alert("Erro: " + e.message); }
   }, [sessaoToken, loadAll]);
 
-  const [inviteType, setInviteType] = useState("convite_aprovacao");
-  const [inviteLink, setInviteLink] = useState("");
-  const [gerandoInvite, setGerandoInvite] = useState(false);
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [processandoReq, setProcessandoReq] = useState(null);
-
-  const handleGerarConvite = useCallback(async () => {
-    if (!grupoId || !sessaoToken) return;
-    setGerandoInvite(true);
-    try {
-      const data = await gerarConviteParticipante(grupoId, sessaoToken, 30, 0, inviteType);
-      console.log("Convite criado:", data);
-      setInviteLink(window.location.origin + "#/convite/" + data.token);
-    } catch (e) { console.error("Erro gerar convite:", e); alert("Erro: " + (e.message || JSON.stringify(e))); }
-    setGerandoInvite(false);
-  }, [grupoId, sessaoToken, inviteType]);
+  const publicLink = useMemo(() => {
+    if (!grupoSlug) return "";
+    return window.location.origin + "#/g/" + grupoSlug + "/entrar";
+  }, [grupoSlug]);
 
   const carregarSolicitacoes = useCallback(async () => {
     if (!grupoId || !sessaoToken) return;
@@ -406,27 +396,18 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
           <div style={{ color: "#FFD700", fontWeight: 800, fontSize: 14, marginBottom: 12 }}>Participantes</div>
 
           <div style={{ marginBottom: 14, padding: 12, background: "#0d1b2a", borderRadius: 8 }}>
-            <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 8 }}>Link de convite para novos participantes:</div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <select value={inviteType} onChange={e => setInviteType(e.target.value)}
-                style={{ background: "#1a2234", border: "1px solid #1E2A45", borderRadius: 6, color: "#F0F4FF", padding: "8px 10px", fontSize: 12, cursor: "pointer" }}>
-                <option value="convite_aprovacao">Com aprovação (WhatsApp)</option>
-                <option value="convite_auto">Auto (entrada direta)</option>
-              </select>
-            </div>
+            <div style={{ color: "#8B9CC8", fontSize: 12, marginBottom: 8 }}>Link público do grupo (compartilhe no WhatsApp):</div>
             <div style={{ display: "flex", gap: 8 }}>
-              <input readOnly value={inviteLink} placeholder="Clique em Gerar para criar o link"
+              <input readOnly value={publicLink}
                 style={{ flex: 1, background: "#1a2234", border: "1px solid #1E2A45", borderRadius: 6, color: "#FFD700", padding: "8px 10px", fontSize: 12, fontWeight: 600 }} />
-              <Btn onClick={handleGerarConvite} cor="#0033A0" disabled={gerandoInvite} style={{ padding: "8px 14px", fontSize: 12, whiteSpace: "nowrap" }}>
-                {gerandoInvite ? "\u23F3" : "Gerar"}
-              </Btn>
-            </div>
-            {inviteLink && (
-              <button onClick={() => { navigator.clipboard.writeText(inviteLink); alert("Link copiado!"); }}
-                style={{ marginTop: 8, background: "transparent", border: "1px solid #0033A0", borderRadius: 6, color: "#0033A0", padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer", width: "100%" }}>
-                Copiar link
+              <button onClick={() => { navigator.clipboard.writeText(publicLink); alert("Link copiado!"); }}
+                style={{ background: "#0033A0", border: "none", borderRadius: 6, color: "#fff", padding: "8px 14px", fontSize: 12, whiteSpace: "nowrap", cursor: "pointer", fontWeight: 600 }}>
+                Copiar
               </button>
-            )}
+            </div>
+            <div style={{ color: "#6B7BA8", fontSize: 10, marginTop: 6 }}>
+              Quem acessar este link fará um cadastro e solicitará entrada. Você precisa aprovar manualmente.
+            </div>
           </div>
 
           {/* SOLICITAÇÕES PENDENTES */}

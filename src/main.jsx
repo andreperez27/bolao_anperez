@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import App from "./App";
 import SuperAdminLayout from "./pages/SuperAdminLayout";
 import Convite from "./pages/Convite";
+import EntrarGrupo from "./pages/EntrarGrupo";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { AuthProvider } from "./contexts/AuthContext";
 import { GrupoProvider } from "./contexts/GrupoContext";
@@ -14,6 +15,7 @@ console.log("Main: App starting, hash:", window.location.hash);
 ReactDOM.createRoot(document.getElementById("root")).render(
     <HashRouter>
       <Routes>
+        <Route path="/g/:slug/entrar" element={<EntrarGrupo />} />
         <Route path="/g/:slug/*" element={<AuthProvider><GrupoProvider><App /></GrupoProvider></AuthProvider>} />
         <Route path="/convite/:token" element={<Convite />} />
         <Route path="/superadmin/*" element={<AuthProvider><ErrorBoundary><SuperAdminLayout /></ErrorBoundary></AuthProvider>} />

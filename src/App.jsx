@@ -31,6 +31,13 @@ export default function App() {
     if (grupoError) navigateTo("login");
   }, [grupoError, navigateTo]);
 
+  // Redirecionar para entrar se estiver logado mas não for membro
+  useEffect(() => {
+    if (!grupoLoading && user && !membership && grupoSlug) {
+      navigate("/g/" + grupoSlug + "/entrar", { replace: true });
+    }
+  }, [user, membership, grupoLoading, grupoSlug, navigate]);
+
   useEffect(() => {
     const seen = localStorage.getItem("bolaov2_instrucoes_visto");
     if (!seen && !user) {

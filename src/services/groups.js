@@ -114,3 +114,17 @@ export async function atualizarConfigGrupo({ grupoId, sessaoToken, valorAposta, 
 export async function removerMembro(grupoId, membroProfileId, sessaoToken) {
   return await rpc("remover_membro_grupo_v2", { p_grupo_id: grupoId, p_membro_profile_id: membroProfileId, p_sessao_token: sessaoToken });
 }
+
+// ========== NOVO FLUXO DE ENTRADA PÚBLICA (sem token) ==========
+
+export async function buscarGrupoPublico(slug) {
+  return await rpc("buscar_grupo_publico", { p_slug: slug });
+}
+
+export async function solicitarEntradaGrupo(grupoSlug, nome, senha) {
+  return await rpc("solicitar_entrada_grupo", { p_grupo_slug: grupoSlug, p_nome: nome, p_senha: senha });
+}
+
+export async function verificarStatusParticipante(grupoSlug, sessaoToken) {
+  return await rpc("verificar_status_participante", { p_grupo_slug: grupoSlug, p_sessao_token: sessaoToken });
+}
