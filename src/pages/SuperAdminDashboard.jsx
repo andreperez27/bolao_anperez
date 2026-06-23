@@ -17,6 +17,8 @@ export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
+  
+  console.log("SuperAdminDashboard render:", { user: user?.nome, location: location.pathname, hash: window.location.hash });
   const [aba, setAba] = useState("criar");
   const [edicoes, setEdicoes] = useState([]);
   const [grupos, setGrupos] = useState([]);
@@ -114,7 +116,7 @@ export default function SuperAdminDashboard() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0A0E1A", paddingBottom: 60 }}>
+    <div style={{ minHeight: "100vh", background: "#0A0E1A", paddingBottom: 60 }} onError={(e) => console.error("SuperAdminDashboard error:", e)}>
       <div style={{ background: "linear-gradient(135deg, #0f172a, #1e293b)", borderBottom: "2px solid #FFD700" }}>
         <div style={{ padding: "20px 24px 14px", maxWidth: 800, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>

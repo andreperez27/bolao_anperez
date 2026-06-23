@@ -91,9 +91,8 @@ export default function SuperAdminLayout() {
 
   return (
     <Routes>
-      <Route index element={<SuperAdminDashboard />} />
-      <Route path="grupos" element={<SuperAdminDashboard />} />
-      <Route path="grupos/novo" element={<SuperAdminDashboard />} />
+      <Route path="/" element={<SuperAdminDashboard />} />
+      <Route path="/grupos" element={<SuperAdminDashboard />} />
       <Route path="*" element={<Navigate to="/superadmin" replace />} />
     </Routes>
   );
