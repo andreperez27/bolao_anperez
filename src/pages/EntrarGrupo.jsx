@@ -84,7 +84,7 @@ export default function EntrarGrupo() {
         setEstado(ESTADOS.NOT_FOUND);
       } else if (data?.status === "wrong_password") {
         setEstado(ESTADOS.FORM);
-        setErro("Senha incorreta. Tente novamente.");
+        setErro("Este nome já está em uso. Se é você, faça login com sua senha.");
       } else if (data?.status === "member") {
         salvarSession(data);
         setEstado(ESTADOS.MEMBER);
@@ -245,37 +245,50 @@ export default function EntrarGrupo() {
           {erro && (
             <div style={{ color: "#C8102E", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{erro}</div>
           )}
-          <input
-            placeholder="Seu nome"
-            value={nome}
-            onChange={(e) => { setNome(e.target.value); setErro(""); }}
-            style={inputStyle}
-            disabled={estado === ESTADOS.SUBMITTING}
-            autoFocus
-          />
-          <input
-            type="password"
-            placeholder="Crie uma senha (mín. 6 caracteres)"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            style={{ ...inputStyle, marginTop: 10 }}
-            disabled={estado === ESTADOS.SUBMITTING}
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-          />
+          {erro.includes("já está em uso") ? (
+            <div style={{ textAlign: "center", padding: "8px 0" }}>
+              <div style={{ color: "#8B9CC8", fontSize: 13, marginBottom: 12 }}>
+                Se você já possui cadastro, faça login com sua senha.
+              </div>
+              <button onClick={() => navigate("/g/" + slug + "/login")} style={btnPrimaryStyle}>
+                Ir para login
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                placeholder="Seu nome"
+                value={nome}
+                onChange={(e) => { setNome(e.target.value); setErro(""); }}
+                style={inputStyle}
+                disabled={estado === ESTADOS.SUBMITTING}
+                autoFocus
+              />
+              <input
+                type="password"
+                placeholder="Crie uma senha (mín. 6 caracteres)"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                style={{ ...inputStyle, marginTop: 10 }}
+                disabled={estado === ESTADOS.SUBMITTING}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              />
 
-          <button
-            onClick={handleSubmit}
-            disabled={!nome.trim() || senha.length < 6 || estado === ESTADOS.SUBMITTING}
-            style={{
-              ...btnPrimaryStyle,
-              width: "100%",
-              marginTop: 16,
-              opacity: !nome.trim() || senha.length < 6 || estado === ESTADOS.SUBMITTING ? 0.6 : 1,
-              cursor: !nome.trim() || senha.length < 6 || estado === ESTADOS.SUBMITTING ? "not-allowed" : "pointer",
-            }}
-          >
-            {estado === ESTADOS.SUBMITTING ? "Enviando..." : "Solicitar entrada"}
-          </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!nome.trim() || senha.length < 6 || estado === ESTADOS.SUBMITTING}
+                style={{
+                  ...btnPrimaryStyle,
+                  width: "100%",
+                  marginTop: 16,
+                  opacity: !nome.trim() || senha.length < 6 || estado === ESTADOS.SUBMITTING ? 0.6 : 1,
+                  cursor: !nome.trim() || senha.length < 6 || estado === ESTADOS.SUBMITTING ? "not-allowed" : "pointer",
+                }}
+              >
+                {estado === ESTADOS.SUBMITTING ? "Enviando..." : "Solicitar entrada"}
+              </button>
+            </>
+          )}
         </div>
 
         <div style={{ color: "#6B7BA8", fontSize: 12, textAlign: "center", marginTop: 16 }}>
