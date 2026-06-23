@@ -10,8 +10,20 @@
   <meta name="description" content="Bolão Anperez — Plataforma de gestão de Bolões" />
   <link rel="apple-touch-icon" href="/bolao_anperez/icons/192.png" />
   <link rel="icon" type="image/x-icon" href="/bolao_anperez/icons/192.png" />
-  <script type="module" crossorigin src="/bolao_anperez/assets/index-DcvkmQUs.js"></script>
-  <link rel="modulepreload" crossorigin href="/bolao_anperez/assets/vendor-D-UZbkbu.js">
+  <script>
+    (function() {
+      var base = '/bolao_anperez/';
+      var path = window.location.pathname;
+      if (path && path.startsWith(base) && !window.location.hash) {
+        var route = path.substring(base.length);
+        if (route && route !== '/' && route !== '') {
+          window.location.replace(window.location.origin + base + '#/' + route);
+        }
+      }
+    })();
+  </script>
+  <script type="module" crossorigin src="/bolao_anperez/assets/index-6xhrmY3B.js"></script>
+  <link rel="modulepreload" crossorigin href="/bolao_anperez/assets/vendor-D_XgopTS.js">
   <link rel="stylesheet" crossorigin href="/bolao_anperez/assets/index-BzVN5Cp8.css">
 </head>
 <body>
