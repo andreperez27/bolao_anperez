@@ -68,7 +68,7 @@ export default function SuperAdminDashboard() {
         sessaoToken: session.sessao_token,
       });
       setCredenciais((prev) => ({ ...prev, [form.slug.trim()]: { nome: form.adminNome.trim(), senha: form.adminSenha } }));
-      const link = `${window.location.origin}${import.meta.env.BASE_URL}g/${form.slug.trim()}/login`;
+      const link = `${window.location.origin}${import.meta.env.BASE_URL}#/g/${form.slug.trim()}/login`;
       setMsg(
         `Grupo "${form.nome}" criado com sucesso!\n\n` +
         `Link do grupo: ${link}\n` +
@@ -95,7 +95,7 @@ export default function SuperAdminDashboard() {
 
   const copiarConviteAdmin = (g) => {
     const cred = credenciais[g.slug];
-    const link = `${window.location.origin}${import.meta.env.BASE_URL}g/${g.slug}/login`;
+    const link = `${window.location.origin}${import.meta.env.BASE_URL}#/g/${g.slug}/login`;
     const adminNome = cred?.nome || g.admin_nome || "Admin";
     const adminSenha = cred?.senha || "(senha não disponível)";
     const texto = [
@@ -191,7 +191,7 @@ export default function SuperAdminDashboard() {
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {grupos.map((g) => {
                   const cred = credenciais[g.slug];
-                  const link = `${window.location.origin}${import.meta.env.BASE_URL}g/${g.slug}/login`;
+                  const link = `${window.location.origin}${import.meta.env.BASE_URL}#/g/${g.slug}/login`;
                   const adminNome = cred?.nome || g.admin_nome || "Admin";
                   const adminSenha = cred?.senha || "—";
                   return (
