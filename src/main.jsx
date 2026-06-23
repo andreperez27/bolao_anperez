@@ -8,6 +8,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { GrupoProvider } from "./contexts/GrupoContext";
 import "./styles/global.css";
 
+console.log("Main: App starting, hash:", window.location.hash);
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HashRouter>

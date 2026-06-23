@@ -22,7 +22,11 @@ export default function Convite() {
   // HashRouter: token vem da URL hash (ex: #/convite/TOKEN)
   const token = urlToken;
   
-  console.log("Convite mount:", { token, hash: window.location.hash });
+  console.log("Convite mount:", { token, hash: window.location.hash, params: urlToken });
+  
+  if (!token) {
+    console.warn("Convite: No token in URL params");
+  }
 
   const [estado, setEstado] = useState(ESTADOS.VALIDANDO);
   const [grupoNome, setGrupoNome] = useState("");

@@ -71,7 +71,10 @@ export async function gerarConviteParticipante(grupoId, sessaoToken, validadeDia
 }
 
 export async function validarConvite(token) {
-  return await rpc("validar_convite", { p_token: token });
+  console.log("validarConvite called with:", token);
+  const result = await rpc("validar_convite", { p_token: token });
+  console.log("validarConvite result:", result);
+  return result;
 }
 
 export async function solicitarEntradaComConvite(token, sessaoToken) {

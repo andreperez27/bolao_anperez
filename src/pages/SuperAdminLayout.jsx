@@ -63,6 +63,8 @@ export default function SuperAdminLayout() {
   const navigate = useNavigate();
   const [redirecting, setRedirecting] = React.useState(false);
 
+  console.log("SuperAdminLayout:", { loading, user: user?.nome, hash: window.location.hash, search: location.search });
+
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", background: "#0A0E1A", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -71,7 +73,10 @@ export default function SuperAdminLayout() {
     );
   }
 
-  if (!user) return <SuperAdminLogin />;
+  if (!user) {
+    console.log("SuperAdminLayout: No user, showing login");
+    return <SuperAdminLogin />;
+  }
 
   // após login, redirecionar para convite pendente se houver
   React.useEffect(() => {
