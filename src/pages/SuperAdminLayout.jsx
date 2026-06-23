@@ -80,7 +80,7 @@ export default function SuperAdminLayout() {
     const conviteToken = params.get("convite");
     if (conviteToken) {
       setRedirecting(true);
-      navigate("/convite/" + conviteToken, { replace: true });
+      navigate("#/convite/" + conviteToken, { replace: true });
     }
   }, [user, location.search, navigate, redirecting]);
 

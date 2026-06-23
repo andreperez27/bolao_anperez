@@ -13,17 +13,6 @@
 </head>
 <body>
   <div id="root"></div>
-  <script>
-    (function() {
-      var params = new URLSearchParams(window.location.search);
-      var path = params.get('path');
-      if (path) {
-        params.delete('path');
-        window.history.replaceState(null, '', path + (params.toString() ? '?' + params.toString() : ''));
-      }
-    })();
-  </script>
-  <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

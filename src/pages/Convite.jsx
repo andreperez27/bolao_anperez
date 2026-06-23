@@ -17,13 +17,12 @@ const ESTADOS = {
 
 export default function Convite() {
   const { token: urlToken } = useParams();
-  const location = useLocation();
   const navigate = useNavigate();
-  const [session, setSession] = useState(() => getSession());
-
-  const token = urlToken || new URLSearchParams(location.search).get('token');
   
-  console.log("Convite mount:", { urlToken, searchToken: new URLSearchParams(location.search).get('token'), finalToken: token, location });
+  // HashRouter: token vem da URL hash (ex: #/convite/TOKEN)
+  const token = urlToken;
+  
+  console.log("Convite mount:", { token, hash: window.location.hash });
 
   const [estado, setEstado] = useState(ESTADOS.VALIDANDO);
   const [grupoNome, setGrupoNome] = useState("");

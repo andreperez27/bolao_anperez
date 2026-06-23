@@ -226,8 +226,7 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
     try {
       const data = await gerarConviteParticipante(grupoId, sessaoToken, 30, 0, inviteType);
       console.log("Convite criado:", data);
-      const base = import.meta.env.BASE_URL || "/";
-      setInviteLink(window.location.origin + base + "convite/" + data.token);
+      setInviteLink(window.location.origin + "#/convite/" + data.token);
     } catch (e) { console.error("Erro gerar convite:", e); alert("Erro: " + (e.message || JSON.stringify(e))); }
     setGerandoInvite(false);
   }, [grupoId, sessaoToken, inviteType]);
