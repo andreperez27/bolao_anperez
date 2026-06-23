@@ -114,9 +114,6 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
     } catch { setExcluidas([]); }
   }, [grupoId, sessaoToken]);
 
-  // apenas admin vê o painel
-  if (!isAdmin) return null;
-
   // config UI state
   const [valorAposta, setValorAposta] = useState(20);
   const [apiUrl, setApiUrl] = useState("");
@@ -257,6 +254,9 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
     if (!window.confirm("Excluir permanentemente? Esta ação não pode ser desfeita.")) return;
     try { await excluirPredictionDefinitivo(id, sessaoToken); carregarExcluidas(); } catch (e) { alert("Erro: " + e.message); }
   }, [sessaoToken, carregarExcluidas]);
+
+  // apenas admin vê o painel (DEPOIS de todos os hooks)
+  if (!isAdmin) return null;
 
   const fasesParaMostrar = stages.filter(s => s.stage_tipo === "knockout" || s.stage_tipo === "groups");
 

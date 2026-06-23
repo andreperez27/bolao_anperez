@@ -62,7 +62,7 @@ export function GrupoProvider({ children }) {
 
   return (
     <GrupoContext.Provider value={{
-      grupoId: data.grupo?.id || grupoSlug,
+      grupoId: data.grupo?.id || null,
       grupo: data.grupo,
       edition: data.edition,
       config: data.config,
