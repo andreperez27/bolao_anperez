@@ -218,7 +218,7 @@ export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }
   const [processandoReq, setProcessandoReq] = useState(null);
   const publicLink = useMemo(() => {
     if (!grupoSlug) return "";
-    return window.location.origin + "#/g/" + grupoSlug + "/entrar";
+    return window.location.origin + import.meta.env.BASE_URL + "#/g/" + grupoSlug + "/entrar";
   }, [grupoSlug]);
 
   const carregarSolicitacoes = useCallback(async () => {

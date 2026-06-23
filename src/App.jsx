@@ -120,7 +120,7 @@ export default function App() {
     <>
       <OfflineBanner />
       <Routes>
-        <Route index element={user ? <div style={{ minHeight: "100vh", background: "#0A0E1A", display: "flex", alignItems: "center", justifyContent: "center" }}><a href="/superadmin" style={{ color: "#FFD700", fontSize: 18 }}>Ir para Painel Administrativo</a></div> : <Login onLogin={handleLogin} />} />
+        <Route index element={user ? <div style={{ minHeight: "100vh", background: "#0A0E1A", display: "flex", alignItems: "center", justifyContent: "center" }}><a href="#/superadmin" style={{ color: "#FFD700", fontSize: 18 }}>Ir para Painel Administrativo</a></div> : <Login onLogin={handleLogin} />} />
         <Route path="login" element={<Login onLogin={handleLogin} />} />
         <Route path="minhas-cartelas" element={
           user ? (
