@@ -64,6 +64,17 @@ export default function SuperAdminLayout() {
   const navigate = useNavigate();
   const [redirecting, setRedirecting] = React.useState(false);
 
+  // MUST be before early returns (rules of hooks)
+  React.useEffect(() => {
+    if (!user || redirecting) return;
+    const params = new URLSearchParams(location.search);
+    const conviteToken = params.get("convite");
+    if (conviteToken) {
+      setRedirecting(true);
+      navigate("/convite/" + conviteToken, { replace: true });
+    }
+  }, [user, location.search, navigate, redirecting]);
+
   console.log("SuperAdminLayout:", { loading, user: user?.nome, hash: window.location.hash, search: location.search });
 
   if (loading) {
@@ -78,17 +89,6 @@ export default function SuperAdminLayout() {
     console.log("SuperAdminLayout: No user, showing login");
     return <SuperAdminLogin />;
   }
-
-  // após login, redirecionar para convite pendente se houver
-  React.useEffect(() => {
-    if (redirecting) return;
-    const params = new URLSearchParams(location.search);
-    const conviteToken = params.get("convite");
-    if (conviteToken) {
-      setRedirecting(true);
-      navigate("/convite/" + conviteToken, { replace: true });
-    }
-  }, [user, location.search, navigate, redirecting]);
 
   console.log("SuperAdminLayout: rendering dashboard for user:", user?.nome, user?.role_global);
   return (
