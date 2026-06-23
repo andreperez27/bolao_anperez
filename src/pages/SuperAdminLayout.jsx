@@ -2,6 +2,7 @@ import React from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import SuperAdminDashboard from "./SuperAdminDashboard";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 function SuperAdminLogin() {
   const { user, signIn, loading } = useAuth();
@@ -85,14 +86,15 @@ export default function SuperAdminLayout() {
     const conviteToken = params.get("convite");
     if (conviteToken) {
       setRedirecting(true);
-      navigate("#/convite/" + conviteToken, { replace: true });
+      navigate("/convite/" + conviteToken, { replace: true });
     }
   }, [user, location.search, navigate, redirecting]);
 
+  console.log("SuperAdminLayout: rendering dashboard for user:", user?.nome, user?.role_global);
   return (
     <Routes>
-      <Route path="/" element={<SuperAdminDashboard />} />
-      <Route path="/grupos" element={<SuperAdminDashboard />} />
+      <Route index element={<ErrorBoundary><SuperAdminDashboard /></ErrorBoundary>} />
+      <Route path="grupos" element={<ErrorBoundary><SuperAdminDashboard /></ErrorBoundary>} />
       <Route path="*" element={<Navigate to="/superadmin" replace />} />
     </Routes>
   );
