@@ -3,10 +3,20 @@ import { buscarResultadosEdicao } from "../services/competitions";
 import { useGrupo } from "../contexts/GrupoContext";
 
 export function useRanking(grupoId) {
-  const { edition } = useGrupo();
+  const { edition, config } = useGrupo();
   const [resultados, setResultados] = useState({});
   const [campeoReal, setCampeoReal] = useState("");
+  const [viceCampeoReal, setViceCampeoReal] = useState("");
+  const [artilheiroReal, setArtilheiroReal] = useState("");
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
+
+  useEffect(() => {
+    if (config) {
+      setCampeoReal(config.campeao_real_id || "");
+      setViceCampeoReal(config.vice_campeao_real_id || "");
+      setArtilheiroReal(config.artilheiro_real_nome || "");
+    }
+  }, [config]);
 
   const loadData = useCallback(async () => {
     if (!edition?.edition_id) return;
@@ -35,5 +45,5 @@ export function useRanking(grupoId) {
     setCampeoReal(novoCampeo || "");
   }, []);
 
-  return { resultados, campeoReal, updateResultados, loadData, ultimaAtualizacao };
+  return { resultados, campeoReal, viceCampeoReal, artilheiroReal, updateResultados, loadData, ultimaAtualizacao };
 }

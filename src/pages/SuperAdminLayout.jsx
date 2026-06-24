@@ -75,8 +75,6 @@ export default function SuperAdminLayout() {
     }
   }, [user, location.search, navigate, redirecting]);
 
-  console.log("SuperAdminLayout:", { loading, user: user?.nome, hash: window.location.hash, search: location.search });
-
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", background: "#0A0E1A", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -86,11 +84,9 @@ export default function SuperAdminLayout() {
   }
 
   if (!user) {
-    console.log("SuperAdminLayout: No user, showing login");
     return <SuperAdminLogin />;
   }
 
-  console.log("SuperAdminLayout: rendering dashboard for user:", user?.nome, user?.role_global);
   return (
     <Routes>
       <Route index element={<ErrorBoundary><SuperAdminDashboard /></ErrorBoundary>} />

@@ -18,7 +18,7 @@ export default function SuperAdminDashboard() {
   const location = useLocation();
   const { user, signOut } = useAuth();
   
-  console.log("SuperAdminDashboard render:", { user: user?.nome, location: location.pathname, hash: window.location.hash });
+
   const [aba, setAba] = useState("criar");
   const [edicoes, setEdicoes] = useState([]);
   const [grupos, setGrupos] = useState([]);

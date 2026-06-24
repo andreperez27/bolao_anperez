@@ -22,7 +22,7 @@ export default function Convite() {
   // HashRouter: token vem da URL hash (ex: #/convite/TOKEN)
   const token = urlToken;
   
-  console.log("Convite mount:", { token, hash: window.location.hash, params: urlToken });
+
   
   if (!token) {
     console.warn("Convite: No token in URL params");
@@ -80,7 +80,7 @@ export default function Convite() {
     setSubmitting(true);
     try {
       const data = await solicitarEntradaComConvite(token, currentSession.sessao_token);
-      console.log("Solicitação resposta:", data);
+
       if (data?.entrada_direta) {
         alert("Bem-vindo ao grupo!");
         navigate(`/g/${data.grupo_slug}/minhas-cartelas`, { replace: true });

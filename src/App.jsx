@@ -21,7 +21,7 @@ export default function App() {
   const { user, signOut } = useAuth();
   const { grupoId, grupo, edition, config, membership, grupoSlug, navigateTo, loading: grupoLoading, error: grupoError } = useGrupo();
   const { cartelas, refresh: refreshCartelas, salvar: salvarCartelaHook, deletar, validar } = useCartelas(grupoId);
-  const { resultados, campeoReal, updateResultados, loadData, ultimaAtualizacao } = useRanking(grupoId);
+  const { resultados, campeoReal, viceCampeoReal, artilheiroReal, updateResultados, loadData, ultimaAtualizacao } = useRanking(grupoId);
 
   const [cartelaEditando, setCartelaEditando] = useState(null);
   const [cartelaPrint, setCartelaPrint] = useState(null);
@@ -152,7 +152,7 @@ export default function App() {
         } />
         <Route path="ranking" element={
           <RankingPage
-            resultados={resultados} campeoReal={campeoReal}
+            resultados={resultados} campeoReal={campeoReal} viceCampeoReal={viceCampeoReal} artilheiroReal={artilheiroReal}
             config={config}
             onVoltar={() => navigateTo("minhas-cartelas")}
             onShowInstrucoes={() => setShowInstrucoes(true)}
