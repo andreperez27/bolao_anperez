@@ -60,7 +60,7 @@ const TABS = [
 ];
 
 export function AdminPanel({ resultados, onResultadosChange, ultimaAtualizacao }) {
-  const { grupoId, membership, edition, config: grupoConfig } = useGrupo();
+  const { grupoId, membership, edition, config: grupoConfig, grupoSlug } = useGrupo();
   const session = getSession();
   const sessaoToken = session?.sessao_token;
   const isAdmin = membership?.role === "admin";
