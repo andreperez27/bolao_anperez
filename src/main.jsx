@@ -16,7 +16,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <HashRouter>
       <Routes>
         <Route path="/g/:slug/entrar" element={<EntrarGrupo />} />
-        <Route path="/g/:slug/*" element={<AuthProvider><GrupoProvider><App /></GrupoProvider></AuthProvider>} />
+        <Route path="/g/:slug/*" element={<AuthProvider><GrupoProvider><ErrorBoundary><App /></ErrorBoundary></GrupoProvider></AuthProvider>} />
         <Route path="/convite/:token" element={<Convite />} />
         <Route path="/superadmin/*" element={<AuthProvider><ErrorBoundary><SuperAdminLayout /></ErrorBoundary></AuthProvider>} />
         <Route path="*" element={<Navigate to="/superadmin" replace />} />

@@ -15,17 +15,12 @@ export function GrupoProvider({ children }) {
   const [sessionToken, setSessionToken] = useState(() => getSession()?.sessao_token);
 
   useEffect(() => {
-    const sync = () => {
+    const check = setInterval(() => {
       const t = getSession()?.sessao_token;
-      setSessionToken((prev) => (t !== prev ? t : prev));
-    };
-    window.addEventListener("storage", sync);
-    window.addEventListener("focus", sync);
-    return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("focus", sync);
-    };
-  }, []);
+      if (t !== sessionToken) setSessionToken(t);
+    }, 500);
+    return () => clearInterval(check);
+  }, [sessionToken]);
 
   const grupoSlug = useMemo(() => slug || null, [slug]);
   const isInGroup = useMemo(() => !!slug, [slug]);
